@@ -1,0 +1,286 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Lexend', sans-serif;
+
+  /* Official Mattel & UNO Color Palette */
+  --color-brand-red: #cc3333;
+  /* Official Mattel Red */
+  --color-brand-blue: #0956bf;
+  /* UNO Blue */
+  --color-brand-green: #379711;
+  /* UNO Green */
+  --color-brand-yellow: #ecd407;
+  /* UNO Yellow */
+
+  /* Neutrals for Light Mode (Light gray background + white cards) */
+  --color-neutral-bg: #f8fafc;
+  --color-neutral-card: #ffffff;
+  --color-neutral-border: #e2e8f0;
+  --color-neutral-text: #0f172a;
+  --color-neutral-muted: #64748b;
+}
+
+/* 3D Tactile Arcade Button Styles */
+.btn-3d {
+  position: relative;
+  border: none;
+  background: transparent;
+  padding: 0;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-block;
+}
+
+.btn-3d-shadow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 14px;
+  transform: translateY(2px);
+  transition: transform 600ms cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.btn-3d-edge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+}
+
+/* Color-specific edges representing button depth */
+.btn-3d-edge-blue {
+  background: linear-gradient(to left,
+      #032c66 0%,
+      #064091 8%,
+      #064091 92%,
+      #032c66 100%);
+}
+
+.btn-3d-edge-green {
+  background: linear-gradient(to left,
+      #1b4c08 0%,
+      #296f0b 8%,
+      #296f0b 92%,
+      #1b4c08 100%);
+}
+
+.btn-3d-edge-red {
+  background: linear-gradient(to left,
+      #661111 0%,
+      #991f1f 8%,
+      #991f1f 92%,
+      #661111 100%);
+}
+
+.btn-3d-front {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border-radius: 14px;
+  transform: translateY(-4px);
+  transition: transform 600ms cubic-bezier(0.3, 0.7, 0.4, 1);
+  min-height: 56px;
+}
+
+.btn-3d-front-blue {
+  background: #0956bf;
+}
+
+.btn-3d-front-green {
+  background: #379711;
+}
+
+.btn-3d-front-red {
+  background: #cc3333;
+}
+
+/* Hover and active states transitions */
+.btn-3d:hover .btn-3d-shadow {
+  transform: translateY(4px);
+  transition: transform 250ms cubic-bezier(0.3, 0.7, 0.4, 1.5);
+}
+
+.btn-3d:hover .btn-3d-front {
+  transform: translateY(-6px);
+  transition: transform 250ms cubic-bezier(0.3, 0.7, 0.4, 1.5);
+}
+
+.btn-3d:hover .btn-3d-front-blue {
+  background: #116ce8;
+}
+
+.btn-3d:hover .btn-3d-front-green {
+  background: #44b518;
+}
+
+.btn-3d:hover .btn-3d-front-red {
+  background: #e63939;
+}
+
+.btn-3d:active .btn-3d-shadow {
+  transform: translateY(1px);
+  transition: transform 34ms;
+}
+
+.btn-3d:active .btn-3d-front {
+  transform: translateY(-2px);
+  transition: transform 34ms;
+}
+
+.btn-3d .btn-3d-front span {
+  user-select: none;
+}
+
+/* Brutalist Input Styles aligned to Spacing, Borders, and Mattel Palette */
+.brutalist-container {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  margin: 24px auto 16px;
+}
+
+.brutalist-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #0f172a;
+  background-color: #ffffff;
+  border: 3px solid #0f172a;
+  position: relative;
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 4px 4px 0 #0f172a, 8px 8px 0 #0956bf;
+  border-radius: 8px;
+  /* Soft brutalist geometry */
+}
+
+.brutalist-label {
+  position: absolute;
+  left: 12px;
+  top: -24px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+  background-color: #cc3333;
+  /* Mattel Red Label */
+  padding: 4px 8px;
+  transform: rotate(-1deg);
+  z-index: 1;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid #0f172a;
+}
+
+.brutalist-input:focus {
+  border-color: #0956bf;
+  /* UNO Blue Active Border */
+  box-shadow: 4px 4px 0 #0f172a, 8px 8px 0 #8338ec;
+  /* Brand Purple Secondary Shadow Offset */
+  animation: focus-pulse 2s infinite;
+}
+
+.brutalist-input:focus+.brutalist-label {
+  transform: rotate(0deg) scale(1.05);
+  background-color: #0956bf;
+  /* UNO Blue Active Label */
+}
+
+.brutalist-input::placeholder {
+  color: #94a3b8;
+  font-weight: normal;
+  transition: color 0.3s ease;
+}
+
+.brutalist-input:focus::placeholder {
+  color: transparent;
+}
+
+@keyframes focus-pulse {
+
+  0%,
+  100% {
+    border-color: #0f172a;
+  }
+
+  50% {
+    border-color: #0956bf;
+  }
+}
+
+.brutalist-input-error {
+  border-color: #cc3333 !important;
+  box-shadow: 4px 4px 0 #0f172a, 8px 8px 0 #cc3333 !important;
+}
+
+@keyframes brutal-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.animate-brutal-shake {
+  animation: brutal-shake 0.3s ease-in-out;
+}
+
+/* Global Brutalist Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-button,
+::-webkit-scrollbar-button:single-button,
+::-webkit-scrollbar-button:double-button,
+::-webkit-scrollbar-button:start,
+::-webkit-scrollbar-button:end,
+::-webkit-scrollbar-button:decrement,
+::-webkit-scrollbar-button:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-top: 12px solid transparent;
+  border-bottom: 12px solid transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #0f172a; /* Matches main dark theme border color */
+  border-radius: 4px;
+  border: 2px solid #f8fafc; /* Matches --color-neutral-bg */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #cc3333; /* Matches Mattel Red hover color */
+}
+
+/* Custom scrollbar for Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #0f172a transparent;
+}
+
+/* Hide scrollbar completely while keeping scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}

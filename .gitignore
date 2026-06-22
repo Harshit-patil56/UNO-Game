@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Production build outputs
+dist/
+dist-ssr/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.patch
+
+# Local environment variables
+.env
+.env.local
+.env.*.local
+
+# Rule books, design documents, and temporary text/markdown/pdf files not required for running the application
+/GDJ85-Eng.pdf
+/GDJ85-Eng.txt
+/GDR44-English.pdf
+/GDR44-English.txt
+/dontread.md
+/reaedmeforme.txt
+/ui.md
