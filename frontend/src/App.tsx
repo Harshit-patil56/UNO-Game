@@ -143,6 +143,77 @@ export function UnoCard({ cardId, isBack = false, onClick, className = '', side 
   );
 }
 
+interface NormalizedCardClient {
+  color: string;
+  type: string;
+  value: number | null;
+}
+
+const normalizeCardClient = (cardId: string): NormalizedCardClient => {
+  if (!cardId || typeof cardId !== 'string') {
+    return { color: 'UNKNOWN', type: 'UNKNOWN', value: null };
+  }
+
+  // Handle wild cards
+  if (cardId === 'WILD') {
+    return { color: 'WILD', type: 'WILD', value: null };
+  }
+  if (cardId === 'WILD_DRAW_FOUR') {
+    return { color: 'WILD', type: 'WILD_DRAW_FOUR', value: null };
+  }
+  if (cardId === 'WILD_DRAW_TWO') {
+    return { color: 'WILD', type: 'WILD_DRAW_TWO', value: null };
+  }
+  if (cardId === 'WILD_DRAW_COLOR') {
+    return { color: 'WILD', type: 'WILD_DRAW_COLOR', value: null };
+  }
+
+  // Handle colored cards (e.g. BLUE_NUMBER_0, RED_SKIP, RED_REVERSE, YELLOW_DRAW_TWO)
+  const parts = cardId.split('_');
+  const color = parts[0]; // RED, BLUE, GREEN, YELLOW
+  
+  if (parts.length === 3 && parts[1] === 'NUMBER') {
+    const value = parseInt(parts[2], 10);
+    return { color, type: 'NUMBER', value };
+  }
+
+  // Action cards (RED_SKIP, RED_REVERSE, YELLOW_DRAW_TWO)
+  let type = parts[1];
+  if (parts[2]) {
+    type += `_${parts[2]}`; // e.g. DRAW_TWO
+  }
+
+  return { color, type, value: null };
+};
+
+const validatePlayableClientLogic = (cardId: string, topDiscardCardId: string, currentColor: string): boolean => {
+  const card = normalizeCardClient(cardId);
+  const topCard = normalizeCardClient(topDiscardCardId);
+
+  // Wild cards are always playable
+  if (card.color === 'WILD') {
+    return true;
+  }
+
+  // Check color match
+  const activeColor = currentColor || topCard.color;
+  if (card.color === activeColor) {
+    return true;
+  }
+
+  // Check numeric value match for number cards
+  if (card.type === 'NUMBER' && topCard.type === 'NUMBER' && card.value === topCard.value) {
+    return true;
+  }
+
+  // Check type match for action cards (SKIP, REVERSE, DRAW_TWO)
+  if (card.type !== 'NUMBER' && card.type === topCard.type) {
+    return true;
+  }
+
+  return false;
+};
+
 interface ParsedCard {
   cardId: string;
   face: string;
@@ -281,10 +352,11 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
       };
     };
 
-    // Case 1: Initial load
+    // Case 1: Initial load — show top card + up to 5 placeholder cards underneath
     if (discardHistory.length === 0 || lastSizeRef.current === 0) {
+      const visibleUnder = Math.min(currentSize - 1, 5);
       const initialPile: DiscardHistoryCard[] = [];
-      for (let i = 0; i < currentSize - 1; i++) {
+      for (let i = 0; i < visibleUnder; i++) {
         initialPile.push({
           key: `placeholder_${i}_${Math.random()}`,
           cardId: 'DECK_BACK',
@@ -298,30 +370,37 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
       });
       setDiscardHistory(initialPile);
     }
-    // Case 2: New card played
+    // Case 2: New card played — stack the new top card on the pile
     else if (currentSize > lastSizeRef.current || currentTop !== lastTopRef.current) {
       const newCard: DiscardHistoryCard = {
+        // Unique key so Framer Motion mounts this as a NEW element every time
         key: `card_${currentTop}_${Date.now()}_${Math.random()}`,
         cardId: currentTop,
+        // layoutId must match the hand card's layoutId that was just played.
+        // Framer Motion FLIP-animates it flying from hand position → pile center.
         layoutId: lastPlayedCardKey || undefined,
         ...generateOffsets()
       };
 
-      setDiscardHistory((prev) => {
+      setDiscardHistory(prev => {
+        // Guard: don't double-add the same card
         if (prev.length > 0 && prev[prev.length - 1].cardId === currentTop && currentSize === lastSizeRef.current) {
           return prev;
         }
-        return [...prev, newCard];
+        // Keep at most 8 visible in the stack for performance
+        const kept = prev.slice(-7);
+        return [...kept, newCard];
       });
 
       if (lastPlayedCardKey && onResetPlayedKey) {
         onResetPlayedKey();
       }
     }
-    // Case 3: Reshuffled/size decreased
+    // Case 3: Reshuffled — pile shrunk, rebuild history
     else if (currentSize < lastSizeRef.current) {
+      const visibleUnder = Math.min(currentSize - 1, 5);
       const resetPile: DiscardHistoryCard[] = [];
-      for (let i = 0; i < currentSize - 1; i++) {
+      for (let i = 0; i < visibleUnder; i++) {
         resetPile.push({
           key: `placeholder_${i}_${Math.random()}`,
           cardId: 'DECK_BACK',
@@ -346,14 +425,14 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
   return (
     <div
       id="discard-pile-drop-zone"
-      className="relative flex items-center justify-center w-[90px] h-[130px] sm:w-[152px] sm:h-[220px] transition-all duration-200"
+      className="relative flex items-center justify-center w-[90px] h-[130px] sm:w-[152px] sm:h-[220px] transition-all duration-150 ease-out"
     >
       <div className="relative w-full h-full">
         {discardHistory.map((card, i) => {
           const isTop = i === discardHistory.length - 1;
           const shadowStyle = isTop
-            ? "0 12px 24px rgba(0,0,0,0.30), 0 4px 8px rgba(0,0,0,0.20)"
-            : "0 6px 12px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.15)";
+            ? '0 14px 28px rgba(0,0,0,0.32), 0 5px 10px rgba(0,0,0,0.22)'
+            : '0 4px 8px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.12)';
 
           const assetUrl = getCardAssetUrl(card.cardId, side, gameMode);
 
@@ -375,16 +454,19 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
                 backfaceVisibility: 'hidden',
                 willChange: 'transform',
               }}
+              initial={card.layoutId ? undefined : { scale: 0.85, opacity: 0 }}
               animate={{
                 x: card.offsetX,
                 y: card.offsetY,
                 rotate: card.rotation,
                 scale: 1.0,
+                opacity: 1,
               }}
               transition={{
                 type: 'spring',
-                stiffness: 200,
-                damping: 20,
+                stiffness: 280,
+                damping: 24,
+                mass: 0.7,
               }}
             >
               <img
@@ -429,6 +511,8 @@ function HandCanvas({
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  // Tracks which card index is shaking (invalid play attempt)
+  const [shakingIndex, setShakingIndex] = useState<number | null>(null);
 
   // ResizeObserver to dynamically track layout size
   useEffect(() => {
@@ -447,97 +531,106 @@ function HandCanvas({
     return () => observer.disconnect();
   }, []);
 
-  // Reset selected card index when hand/side/gamemode changes
+  // Reset selected card index when hand changes
   useEffect(() => {
     setSelectedCardIndex(null);
   }, [hand, side, gameMode]);
 
-  const validatePlayableClient = (cardId: string) => {
-    if (!room) return false;
-
-    // Check if it's my turn
-    const activePlayerIdx = room.currentTurn;
-    const activePlayer = room.players[activePlayerIdx];
-    if (!activePlayer || activePlayer.id !== myPlayerId) {
+  /**
+   * Client-side UNO playability check.
+   * Rules:
+   *  1. Must be the active player's turn.
+   *  2. Wild cards are always playable.
+   *  3. Card color matches room.currentColor (which may be a Wild-chosen color).
+   *  4. Card number matches top card number (for NUMBER cards).
+   *  5. Card action type matches top card action type (SKIP, REVERSE, DRAW_*).
+   * If player drew a playable card, they may only play that specific card.
+   */
+  const validatePlayableClient = (cardId: string): boolean => {
+    console.log('[validatePlayableClient] Starting validation for card:', cardId);
+    if (!room) {
+      console.log('[validatePlayableClient] Rejecting because room is null/undefined');
       return false;
     }
 
-    // If they drew a playable card, they can only play THAT card or pass
+    // Must be my turn
+    const activePlayer = room.players[room.currentTurn];
+    if (!activePlayer) {
+      console.log('[validatePlayableClient] Rejecting because activePlayer is null/undefined at index:', room.currentTurn);
+      return false;
+    }
+    
+    console.log('[validatePlayableClient] activePlayer:', activePlayer.name, 'id:', activePlayer.id);
+    console.log('[validatePlayableClient] myPlayerId:', myPlayerId);
+    if (activePlayer.id !== myPlayerId) {
+      console.log('[validatePlayableClient] Rejecting because it is not my turn');
+      return false;
+    }
+
+    // If drew a playable card this turn, only that card is allowed
     if (room.drawnPlayableCard && room.drawnPlayableCard !== cardId) {
+      console.log('[validatePlayableClient] Rejecting because drawnPlayableCard is set to:', room.drawnPlayableCard, 'and does not match card:', cardId);
       return false;
     }
 
     const topCardId = room.discardPileTop;
-    if (!topCardId) return true;
+    console.log('[validatePlayableClient] topCardId on discard pile:', topCardId);
+    // No card on pile yet (shouldn't happen mid-game, but safe fallback)
+    if (!topCardId) {
+      console.log('[validatePlayableClient] Allowing play because discard pile is empty');
+      return true;
+    }
 
-    // Normalize faces
+    // Resolve the active face for flip/classic mode
     const face = getActiveCardFaceFrontend(cardId, room.side, room.gameMode);
     const topFace = getActiveCardFaceFrontend(topCardId, room.side, room.gameMode);
+    console.log('[validatePlayableClient] resolved face:', face, 'resolved topFace:', topFace);
 
-    // Wild cards are always playable
-    if (face.startsWith('WILD')) {
-      return true;
-    }
+    const isPlayable = validatePlayableClientLogic(face, topFace, room.currentColor);
+    console.log('[validatePlayableClient] Result of validatePlayableClientLogic:', isPlayable);
+    return isPlayable;
+  };
 
-    const parts = face.split('_');
-    const topParts = topFace.split('_');
+  const triggerShake = (index: number) => {
+    setShakingIndex(index);
+    setTimeout(() => setShakingIndex(null), 450);
+  };
 
-    const color = parts[0];
-    const currentColor = room.currentColor;
-
-    // Check color match
-    if (color === currentColor) {
-      return true;
-    }
-
-    // Check type/number match
-    const type = parts[1];
-    const topType = topParts[1];
-
-    if (type === 'NUMBER' && topType === 'NUMBER') {
-      return parts[2] === topParts[2];
-    }
-
-    if (type !== 'NUMBER' && type === topType) {
-      if (type === 'DRAW') {
-        return parts[2] === topParts[2];
+  const playCard = (cardId: string, index: number) => {
+    const face = getActiveCardFaceFrontend(cardId, side, gameMode);
+    if (face === 'WILD' || face === 'WILD_DRAW_FOUR' || face === 'WILD_DRAW_TWO' || face === 'WILD_DRAW_COLOR') {
+      if (onPlayWild) {
+        onPlayWild(cardId, cardKeys[index]);
       }
-      return true;
+    } else {
+      if (onCardPlay) {
+        onCardPlay(cardKeys[index]);
+      }
+      socket.emit('play_card', { roomId, cardId });
     }
-
-    return false;
   };
 
   const handleCardTap = (cardId: string, index: number) => {
     if (!validatePlayableClient(cardId)) {
+      triggerShake(index);
       return;
     }
 
-    setSelectedCardIndex((prev) => {
+    setSelectedCardIndex(prev => {
       if (prev === index) {
-        const face = getActiveCardFaceFrontend(cardId, side, gameMode);
-        if (face.startsWith('WILD')) {
-          if (onPlayWild) {
-            onPlayWild(cardId, cardKeys[index]);
-          }
-        } else {
-          if (onCardPlay) {
-            onCardPlay(cardKeys[index]);
-          }
-          socket.emit('play_card', { roomId, cardId });
-        }
+        // Second tap = play the card
+        playCard(cardId, index);
         return null;
-      } else {
-        return index;
       }
+      return index;
     });
   };
 
-  const checkIsOverDropZone = (point: { x: number; y: number }) => {
+  const checkIsOverDropZone = (point: { x: number; y: number }): boolean => {
     const dropZone = document.getElementById('discard-pile-drop-zone');
     if (!dropZone) return false;
     const rect = dropZone.getBoundingClientRect();
-    const padding = 20; // 20px padding to make it easy to drop
+    const padding = 24;
     return (
       point.x >= rect.left - padding &&
       point.x <= rect.right + padding &&
@@ -550,38 +643,28 @@ function HandCanvas({
     const isOver = checkIsOverDropZone(info.point);
     const dropZone = document.getElementById('discard-pile-drop-zone');
     if (dropZone) {
-      if (isOver) {
-        dropZone.classList.add('drop-zone-active');
-      } else {
-        dropZone.classList.remove('drop-zone-active');
-      }
+      if (isOver) dropZone.classList.add('drop-zone-active');
+      else dropZone.classList.remove('drop-zone-active');
     }
   };
 
   const handleDragEnd = (_event: any, info: any, cardId: string, index: number) => {
     setDraggingIndex(null);
     const dropZone = document.getElementById('discard-pile-drop-zone');
-    if (dropZone) {
-      dropZone.classList.remove('drop-zone-active');
-    }
+    if (dropZone) dropZone.classList.remove('drop-zone-active');
 
     const isOver = checkIsOverDropZone(info.point);
-    if (isOver) {
-      if (validatePlayableClient(cardId)) {
-        const face = getActiveCardFaceFrontend(cardId, side, gameMode);
-        if (face.startsWith('WILD')) {
-          if (onPlayWild) {
-            onPlayWild(cardId, cardKeys[index]);
-          }
-        } else {
-          if (onCardPlay) {
-            onCardPlay(cardKeys[index]);
-          }
-          socket.emit('play_card', { roomId, cardId });
-        }
-        setSelectedCardIndex(null);
-      }
+    if (!isOver) return; // Dropped outside — dragSnapToOrigin handles the snap-back
+
+    if (!validatePlayableClient(cardId)) {
+      // Card can't be played — shake it
+      triggerShake(index);
+      return;
     }
+
+    // Valid drop on pile: play the card
+    setSelectedCardIndex(null);
+    playCard(cardId, index);
   };
 
   const sortedHand = useMemo(() => {
@@ -609,7 +692,7 @@ function HandCanvas({
   const isMobile = dimensions.width < 640;
 
   const targetH = isMobile ? 130 : 220;
-  const targetW = targetH * 0.69; // 0.69 aspect ratio
+  const targetW = targetH * 0.69;
 
   const spacing = isMobile
     ? Math.max(25, 45 - count)
@@ -617,19 +700,17 @@ function HandCanvas({
 
   const cx = dimensions.width / 2;
   const startX = cx - ((count - 1) * spacing) / 2;
-
   const baseY = isMobile
     ? dimensions.height - 5 - targetH / 2
     : dimensions.height - 10 - targetH / 2;
-
   const middle = (count - 1) / 2;
 
-  // Generate unique keys for duplicate cardId values to prevent layout jumping
+  // Generate stable unique keys for duplicate cardIds
   const counts = new Map<string, number>();
-  const cardKeys = sortedHand.map((cardId) => {
-    const currentCount = counts.get(cardId) || 0;
-    counts.set(cardId, currentCount + 1);
-    return `${cardId}__${currentCount}`;
+  const cardKeys = sortedHand.map(cardId => {
+    const cc = counts.get(cardId) || 0;
+    counts.set(cardId, cc + 1);
+    return `${cardId}__${cc}`;
   });
 
   return (
@@ -648,10 +729,18 @@ function HandCanvas({
           const isSelected = i === selectedCardIndex;
           const isHovered = i === hoveredIndex;
           const isDragging = i === draggingIndex;
+          const isShaking = i === shakingIndex;
 
           let targetY = tYBase;
           let targetScale = 1.0;
           let zIndex = isSelected ? 200 + i : i;
+
+          let shadowStyle = 'drop-shadow(3.54px 3.54px 4px rgba(0,0,0,0.2))';
+          if (isDragging)  shadowStyle = 'drop-shadow(12px 18px 10px rgba(0,0,0,0.3))';
+          else if (isSelected) shadowStyle = 'drop-shadow(5px 8px 6px rgba(0,0,0,0.25))';
+          else if (isHovered)  shadowStyle = 'drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))';
+
+          const isPlayable = validatePlayableClient(cardId);
 
           if (isDragging) {
             targetScale = 1.12;
@@ -660,20 +749,10 @@ function HandCanvas({
             targetY = tYBase - 35;
           } else if (isHovered) {
             targetY = tYBase - 15;
-            targetScale = 1.08;
+            targetScale = isPlayable ? 1.08 : 1.03;
           }
 
           const targetRot = isDragging ? 0 : offset * 2.0;
-
-          // Drop shadow based on select/hover/drag state
-          let shadowStyle = "drop-shadow(3.54px 3.54px 4px rgba(0,0,0,0.2))";
-          if (isDragging) {
-            shadowStyle = "drop-shadow(12px 18px 10px rgba(0,0,0,0.3))";
-          } else if (isSelected) {
-            shadowStyle = "drop-shadow(3.5px 3.5px 3px rgba(0,0,0,0.2))";
-          } else if (isHovered) {
-            shadowStyle = "drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))";
-          }
 
           const assetUrl = getCardAssetUrl(cardId, side, gameMode);
 
@@ -688,10 +767,13 @@ function HandCanvas({
                 width: `${targetW}px`,
                 height: `${targetH}px`,
                 transformOrigin: 'center center',
-                zIndex: zIndex,
+                zIndex,
                 cursor: isDragging ? 'grabbing' : 'pointer',
                 touchAction: 'none',
                 filter: shadowStyle,
+                borderRadius: isMobile ? '7px' : '12px',
+                overflow: 'hidden',
+                backgroundColor: room?.side === 'dark' ? '#18181b' : '#ffffff',
               }}
               initial={{
                 x: cx - targetW / 2,
@@ -700,27 +782,35 @@ function HandCanvas({
                 scale: 0.1,
               }}
               animate={{
-                x: tX - targetW / 2,
+                x: isShaking ? [
+                  tX - targetW / 2 - 8,
+                  tX - targetW / 2 + 8,
+                  tX - targetW / 2 - 6,
+                  tX - targetW / 2 + 6,
+                  tX - targetW / 2,
+                ] : tX - targetW / 2,
                 y: targetY - targetH / 2,
                 rotate: targetRot,
                 scale: targetScale,
               }}
               exit={{
-                y: dimensions.height + 200,
+                // When a card is removed from hand (played), AnimatePresence fires this exit.
+                // But because the card shares layoutId with the new discard pile entry,
+                // Framer Motion FLIP-animates it flying to the pile instead of this exit.
                 opacity: 0,
-                scale: 0.1,
-                transition: { duration: 0.25 }
+                scale: 0.6,
+                transition: { duration: 0.18 }
               }}
               transition={{
                 type: 'spring',
                 stiffness: 260,
                 damping: 24,
-                mass: 0.8
+                mass: 0.8,
+                // For shake: run the x keyframes fast
+                ...(isShaking ? { duration: 0.4 } : {})
               }}
               onMouseEnter={() => setHoveredIndex(i)}
-              onMouseLeave={() => {
-                setHoveredIndex((prev) => (prev === i ? null : prev));
-              }}
+              onMouseLeave={() => setHoveredIndex(prev => prev === i ? null : prev)}
               onClick={() => handleCardTap(cardId, i)}
               drag
               dragElastic={1.0}
@@ -730,11 +820,16 @@ function HandCanvas({
               onDrag={handleDrag}
               onDragEnd={(e, info) => handleDragEnd(e, info, cardId, i)}
             >
-              <img
+              <motion.img
                 src={assetUrl}
                 alt={cardId}
                 className="w-full h-full object-contain pointer-events-none select-none"
                 style={{ imageRendering: 'pixelated' }}
+                animate={{
+                  opacity: isPlayable ? 1.0 : (isDragging ? 0.8 : (isHovered ? 0.65 : 0.45)),
+                  filter: isPlayable ? 'none' : 'grayscale(35%) brightness(0.85)',
+                }}
+                transition={{ duration: 0.18 }}
               />
             </motion.div>
           );
