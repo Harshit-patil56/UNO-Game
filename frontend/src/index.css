@@ -13,6 +13,8 @@
   /* UNO Green */
   --color-brand-yellow: #ecd407;
   /* UNO Yellow */
+  --color-brand-flip: #4c1d95;
+  /* UNO Flip Purple */
 
   /* Neutrals for Light Mode (Light gray background + white cards) */
   --color-neutral-bg: #f8fafc;
@@ -80,6 +82,14 @@
       #661111 100%);
 }
 
+.btn-3d-edge-purple {
+  background: linear-gradient(to left,
+      #2e0854 0%,
+      #3b0764 8%,
+      #3b0764 92%,
+      #2e0854 100%);
+}
+
 .btn-3d-front {
   position: relative;
   display: flex;
@@ -104,6 +114,10 @@
   background: #cc3333;
 }
 
+.btn-3d-front-purple {
+  background: #4c1d95;
+}
+
 /* Hover and active states transitions */
 .btn-3d:hover .btn-3d-shadow {
   transform: translateY(4px);
@@ -125,6 +139,10 @@
 
 .btn-3d:hover .btn-3d-front-red {
   background: #e63939;
+}
+
+.btn-3d:hover .btn-3d-front-purple {
+  background: #6d28d9;
 }
 
 .btn-3d:active .btn-3d-shadow {
@@ -160,7 +178,7 @@
   position: relative;
   outline: none;
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 4px 4px 0 #0f172a, 8px 8px 0 #0956bf;
+  box-shadow: 4px 4px 0 #0f172a, 8px 8px 0 var(--input-shadow-color, #0956bf);
   border-radius: 8px;
   /* Soft brutalist geometry */
 }
@@ -172,8 +190,7 @@
   font-size: 12px;
   font-weight: 800;
   color: #ffffff;
-  background-color: #cc3333;
-  /* Mattel Red Label */
+  /* Background color is applied dynamically from App.tsx class list */
   padding: 4px 8px;
   transform: rotate(-1deg);
   z-index: 1;
@@ -185,16 +202,16 @@
 }
 
 .brutalist-input:focus {
-  border-color: #0956bf;
+  border-color: var(--input-shadow-color, #0956bf);
   /* UNO Blue Active Border */
-  box-shadow: 4px 4px 0 #0f172a, 8px 8px 0 #8338ec;
+  box-shadow: 4px 4px 0 #0f172a, 8px 8px 0 var(--input-focus-shadow-color, #8338ec);
   /* Brand Purple Secondary Shadow Offset */
   animation: focus-pulse 2s infinite;
 }
 
 .brutalist-input:focus+.brutalist-label {
   transform: rotate(0deg) scale(1.05);
-  background-color: #0956bf;
+  background-color: var(--input-shadow-color, #0956bf) !important;
   /* UNO Blue Active Label */
 }
 
@@ -283,4 +300,23 @@
 .no-scrollbar {
   -ms-overflow-style: none !important;  /* IE and Edge */
   scrollbar-width: none !important;  /* Firefox */
+}
+
+/* Custom Brutalist Pop Animation for cycling avatars */
+@keyframes avatar-pop {
+  0% {
+    transform: scale(0.6) rotate(-12deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15) rotate(4deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.animate-avatar-pop {
+  animation: avatar-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }

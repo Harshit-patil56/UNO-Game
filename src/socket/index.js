@@ -11,7 +11,7 @@ import {
   catchUno,
   drawPenalty
 } from '../game/engine.js';
-import { createDeck, shuffleDeck, createFlipDeck, getActiveCardFace } from '../game/deck.js';
+import { createDeck, shuffleDeck, createFlipDeck, getActiveCardFace, dealCards } from '../game/deck.js';
 import { normalizeCard } from '../game/normalizer.js';
 import { nextTurn, skipTurn } from '../game/turnManager.js';
 
