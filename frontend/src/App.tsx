@@ -214,6 +214,65 @@ const validatePlayableClientLogic = (cardId: string, topDiscardCardId: string, c
   return false;
 };
 
+interface GamePlayerAvatarProps {
+  name: string;
+  avatarSeed: string;
+  cardCount: number;
+  isTurn?: boolean;
+}
+
+function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false }: GamePlayerAvatarProps) {
+  const avatarUri = useMemo(() => {
+    try {
+      return createAvatar(adventurer, {
+        seed: avatarSeed || name || 'Felix',
+        backgroundColor: ['cc3333', '0956bf', '379711', '8338ec']
+      }).toDataUri();
+    } catch (e) {
+      return '';
+    }
+  }, [avatarSeed, name]);
+
+  return (
+    <div className={`flex flex-col items-center select-none ${isTurn ? 'scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.15)]' : 'filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.12)]'} transition-all duration-300`}>
+      {/* Name Label Badge (Teal background, solid white border) */}
+      <div className="bg-[#1e7b85] border-2 border-white rounded-[8px] px-3.5 py-1.5 flex items-center justify-center min-w-[80px]">
+        <span className="text-white font-extrabold text-[10px] sm:text-xs tracking-wider truncate max-w-[85px] uppercase">
+          {name}
+        </span>
+      </div>
+
+      {/* Avatar Wrapper & Card Count Indicator */}
+      <div className="relative mt-2">
+        {/* Avatar Square Box with constant white border */}
+        <div 
+          className="w-18 h-18 sm:w-22 sm:h-22 bg-white border-4 border-white rounded-[16px] shadow-[0_8px_16px_rgba(0,0,0,0.15)] overflow-hidden flex items-center justify-center"
+        >
+          {avatarUri && (
+            <img 
+              src={avatarUri} 
+              alt={name} 
+              className="w-full h-full object-cover"
+            />
+          )}
+        </div>
+
+        {/* Card Count Indicator Overlayed at the bottom right */}
+        <div className="absolute -right-3 -bottom-1.5 z-10">
+          <div className="relative w-8 h-10 sm:w-9 sm:h-11">
+            {/* Back card */}
+            <div className="absolute left-0.5 top-0.7 w-6.5 h-8.5 sm:w-7 sm:h-9 bg-white border-2 border-[#0f172a] rounded-[4px] shadow-[1px_1px_0_rgba(0,0,0,0.15)] transform -rotate-6" />
+            {/* Top card */}
+            <div className="absolute left-1.5 top-0 w-6.5 h-8.5 sm:w-7 sm:h-9 bg-white border-2 border-[#0f172a] rounded-[4px] shadow-[2px_2px_0_#0f172a] flex items-center justify-center font-black text-xs text-[#0f172a] transform rotate-3 select-none">
+              {cardCount}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ParsedCard {
   cardId: string;
   face: string;
@@ -1889,6 +1948,16 @@ function App() {
       <LayoutGroup>
         <div className="h-screen w-screen bg-white relative overflow-hidden font-sans select-none flex flex-col items-center justify-end pb-16">
         
+        {/* Active Player Avatar Badge (Bottom Left) */}
+        <div className="absolute left-6 bottom-6 sm:left-10 sm:bottom-10 z-[250]">
+          <GamePlayerAvatar
+            name={player?.name || ''}
+            avatarSeed={player?.avatarSeed || ''}
+            cardCount={hand.length}
+            isTurn={room.players[room.currentTurn]?.id === myPlayerId}
+          />
+        </div>
+
         {/* Settings button in the top-right */}
         <div className="absolute top-6 right-6 z-50">
           <motion.button
