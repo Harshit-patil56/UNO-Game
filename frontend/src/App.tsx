@@ -1325,7 +1325,6 @@ function BetaPill() {
 interface CpuLobbyViewProps {
   avatarOffset: number;
   onNextAvatar: () => void;
-  avatarDataUri: string;
   isLoading: boolean;
   allBotNames: string[];
   botBgColors: string[];
@@ -1333,7 +1332,7 @@ interface CpuLobbyViewProps {
   onStart: (playerName: string, gameMode: 'classic' | 'flip', bots: CpuBot[], avatarSeed: string) => void;
 }
 
-function CpuLobbyView({ avatarOffset, onNextAvatar, avatarDataUri, isLoading, allBotNames, botBgColors, onBack, onStart }: CpuLobbyViewProps) {
+function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botBgColors, onBack, onStart }: CpuLobbyViewProps) {
   const [cpuPlayerName, setCpuPlayerName] = useState(() => {
     try {
       return localStorage.getItem('uno_player_name') || '';
@@ -2708,7 +2707,6 @@ function App() {
         <CpuLobbyView
           avatarOffset={avatarOffset}
           onNextAvatar={handleNextAvatar}
-          avatarDataUri={avatarDataUri}
           isLoading={isLoading}
           allBotNames={ALL_BOT_NAMES}
           botBgColors={BOT_BG_COLORS}
