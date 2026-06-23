@@ -5,6 +5,113 @@ import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
 import { io } from 'socket.io-client';
 import { BACKEND_URL } from './config';
+import confetti from 'canvas-confetti';
+
+// Audio cue synthesizer using AudioContext (fallback)
+const playGameEndSoundSynth = (isVictory: boolean) => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    
+    if (isVictory) {
+      // Triumphant rising arpeggio: C4 -> E4 -> G4 -> C5
+      const notes = [261.63, 329.63, 392.00, 523.25];
+      notes.forEach((freq, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.15);
+        
+        gain.gain.setValueAtTime(0, ctx.currentTime + index * 0.15);
+        gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + index * 0.15 + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.15 + 0.4);
+        
+        osc.start(ctx.currentTime + index * 0.15);
+        osc.stop(ctx.currentTime + index * 0.15 + 0.45);
+      });
+    } else {
+      // Melancholic descending tone: G4 -> Eb4 -> D4 -> C4
+      const notes = [392.00, 311.13, 293.66, 261.63];
+      notes.forEach((freq, index) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.2);
+        
+        gain.gain.setValueAtTime(0, ctx.currentTime + index * 0.2);
+        gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + index * 0.2 + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.2 + 0.5);
+        
+        osc.start(ctx.currentTime + index * 0.2);
+        osc.stop(ctx.currentTime + index * 0.2 + 0.6);
+      });
+    }
+  } catch (e) {
+    console.warn('AudioContext playback failed:', e);
+  }
+};
+
+// Play public sound effects
+const playSoundEffect = (soundName: 'draw' | 'play' | 'shuffle' | 'win' | 'lose' | 'uno' | 'drag', enabled = true) => {
+  if (!enabled) return;
+  try {
+    const audio = new Audio(`/sounds/${soundName === 'draw' ? 'card-draw' : 
+                                      soundName === 'play' ? 'card-play' : 
+                                      soundName === 'shuffle' ? 'card-shuffle' : 
+                                      soundName === 'win' ? 'win' : 
+                                      soundName === 'lose' ? 'lose' : 
+                                      soundName === 'uno' ? 'uno-call' : 
+                                      'card-drag'}.mp3`);
+    audio.volume = soundName === 'drag' ? 0.3 : 0.55;
+    audio.play().catch(e => console.warn(`Audio play for ${soundName} blocked or failed:`, e));
+  } catch (e) {
+    console.warn(`Audio initialization for ${soundName} failed:`, e);
+  }
+};
+
+const playGameEndSound = (isVictory: boolean) => {
+  try {
+    const audio = new Audio(`/sounds/${isVictory ? 'win' : 'lose'}.mp3`);
+    audio.volume = 0.6;
+    audio.play().catch((err) => {
+      console.warn('MP3 game end sound failed, falling back to synth:', err);
+      playGameEndSoundSynth(isVictory);
+    });
+  } catch (e) {
+    playGameEndSoundSynth(isVictory);
+  }
+};
+
+// Confetti fireworks loop helper
+const triggerVictoryConfetti = () => {
+  const duration = 3 * 1000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000, colors: ['#cc3333', '#0956bf', '#379711', '#ecd407', '#8338ec'] };
+
+  function randomInRange(min: number, max: number) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval: any = setInterval(function() {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      return clearInterval(interval);
+    }
+
+    const particleCount = 50 * (timeLeft / duration);
+    confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+    confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+  }, 250);
+};
+
 // PixiJS has been ditched in favor of native React + Framer Motion + CSS
 
 
@@ -214,14 +321,44 @@ const validatePlayableClientLogic = (cardId: string, topDiscardCardId: string, c
   return false;
 };
 
+// Turn timer constants
+const TURN_DURATION = 30; // seconds per turn
+const RING_PERIMETER = 345.66; // Perimeter of the custom rounded path inset by 2.5
+
 interface GamePlayerAvatarProps {
   name: string;
   avatarSeed: string;
   cardCount: number;
   isTurn?: boolean;
+  isMe?: boolean;
+  turnStartedAt?: number;
 }
 
-function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false }: GamePlayerAvatarProps) {
+function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = false, turnStartedAt }: GamePlayerAvatarProps) {
+  const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
+
+  // Reset and start countdown whenever this player's turn begins or turnStartedAt changes
+  useEffect(() => {
+    if (!isTurn || !turnStartedAt) {
+      setTimeLeft(TURN_DURATION);
+      return;
+    }
+
+    const updateTimer = () => {
+      const elapsed = Math.floor((Date.now() - turnStartedAt) / 1000);
+      const remaining = Math.max(0, TURN_DURATION - elapsed);
+      setTimeLeft(remaining);
+    };
+
+    updateTimer(); // run once immediately
+
+    const interval = setInterval(() => {
+      updateTimer();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isTurn, turnStartedAt]);
+
   const avatarUri = useMemo(() => {
     try {
       return createAvatar(adventurer, {
@@ -233,29 +370,92 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false }: GameP
     }
   }, [avatarSeed, name]);
 
+  // Progress 1.0 = full, 0.0 = depleted
+  const progress = isTurn ? timeLeft / TURN_DURATION : 1;
+  // Color: green > 50%, yellow 25-50%, red < 25%
+  const ringColor = progress > 0.5 ? '#379711' : progress > 0.25 ? '#ecd407' : '#cc3333';
+
   return (
-    <div className={`flex flex-col items-center select-none ${isTurn ? 'scale-105 filter drop-shadow-[0_6px_12px_rgba(0,0,0,0.15)]' : 'filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.12)]'} transition-all duration-300`}>
-      {/* Name Label Badge (Teal background, solid white border) */}
-      <div className="bg-[#1e7b85] border-2 border-white rounded-[8px] px-3.5 py-1.5 flex items-center justify-center min-w-[80px]">
+    <motion.div
+      animate={isTurn ? {
+        y: [0, -20, 2, -2, 0],
+        scale: [1, 1.15, 1.08, 1.1, 1.1],
+      } : {
+        y: 0,
+        scale: 1,
+      }}
+      transition={{
+        duration: 0.6,
+        times: [0, 0.35, 0.55, 0.8, 1],
+        ease: "easeInOut",
+      }}
+      className={`flex flex-col items-center select-none ${
+        !isTurn ? 'avatar-inactive' : 'avatar-active'
+      }`}
+    >
+      {/* YOUR TURN pill: only shown for the local player when it's their turn */}
+      {isMe && isTurn && (
+        <div
+          className="your-turn-badge mb-1.5 bg-[#cc3333] border-2 border-[#0f172a] rounded-[6px] px-3 py-1 shadow-[2px_2px_0_#0f172a] flex items-center"
+        >
+          <span className="text-white font-black text-[9px] sm:text-[10px] tracking-widest uppercase">Your Turn</span>
+        </div>
+      )}
+
+      {/* Name Label Badge — red when active, teal otherwise */}
+      <div
+        className={`border-2 border-white rounded-[8px] px-3.5 py-1.5 flex items-center justify-center min-w-[80px] transition-colors duration-300 ${
+          isTurn ? 'bg-[#cc3333]' : 'bg-[#1e7b85]'
+        }`}
+      >
         <span className="text-white font-extrabold text-[10px] sm:text-xs tracking-wider truncate max-w-[85px] uppercase">
           {name}
         </span>
       </div>
 
-      {/* Avatar Wrapper & Card Count Indicator */}
-      <div className="relative mt-2">
-        {/* Avatar Square Box with constant white border */}
-        <div 
-          className="w-18 h-18 sm:w-22 sm:h-22 bg-white border-4 border-white rounded-[16px] shadow-[0_8px_16px_rgba(0,0,0,0.15)] overflow-hidden flex items-center justify-center"
-        >
+      {/* Avatar Wrapper — sized to match avatar box so SVG inset-0 covers it exactly */}
+      <div className="relative mt-2 w-[72px] h-[72px] sm:w-[88px] sm:h-[88px]">
+
+        {/* Avatar image box — always has white border; SVG ring overlays on top when active */}
+        <div className="w-full h-full bg-white border-4 border-white rounded-[16px] overflow-hidden shadow-[0_8px_16px_rgba(0,0,0,0.15)]">
           {avatarUri && (
-            <img 
-              src={avatarUri} 
-              alt={name} 
-              className="w-full h-full object-cover"
-            />
+            <img src={avatarUri} alt={name} className="w-full h-full object-cover" />
           )}
         </div>
+
+        {/* SVG progress ring — depletes clockwise from top-right (badge position) */}
+        {isTurn && (
+          <svg
+            className="absolute inset-0 pointer-events-none z-10"
+            viewBox="0 0 100 100"
+            width="100%"
+            height="100%"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Animated solid progress stroke — overlays white border directly, depletes clockwise */}
+            <path
+              d="M 77.5 2.5 A 20 20 0 0 1 97.5 22.5 L 97.5 77.5 A 20 20 0 0 1 77.5 97.5 L 22.5 97.5 A 20 20 0 0 1 2.5 77.5 L 2.5 22.5 A 20 20 0 0 1 22.5 2.5 L 77.5 2.5"
+              fill="none"
+              stroke={ringColor}
+              strokeWidth="5"
+              strokeLinecap="round"
+              style={{
+                strokeDasharray: `${RING_PERIMETER}`,
+                strokeDashoffset: `${(1 - progress) * RING_PERIMETER}`,
+                transition: 'stroke-dashoffset 0.95s linear, stroke 0.4s ease',
+              }}
+            />
+          </svg>
+        )}
+        {/* Countdown badge — notification-style circle at top-right, color matches ring */}
+        {isTurn && (
+          <div
+            className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full border-2 border-[#0f172a] flex items-center justify-center font-black text-[10px] text-white shadow-[1px_1px_0_#0f172a] select-none"
+            style={{ backgroundColor: ringColor, transition: 'background-color 0.4s ease' }}
+          >
+            {timeLeft}
+          </div>
+        )}
 
         {/* Card Count Indicator Overlayed at the bottom right */}
         <div className="absolute -right-3 -bottom-1.5 z-10">
@@ -268,8 +468,9 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false }: GameP
             </div>
           </div>
         </div>
+
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -312,11 +513,13 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode }: O
   const curveFactor = isMobile ? 1.0 : 1.8;
   const rotationFactor = isMobile ? 1.8 : 2.5;
 
+  const actualWidth = (visibleCards - 1) * spacingX + cardW;
+
   return (
     <div 
       className="relative flex items-end justify-center select-none pointer-events-none"
       style={{
-        width: `${maxFanWidth + cardW}px`,
+        width: `${actualWidth}px`,
         height: `${cardH + bottomOffset + 4}px`,
         margin: '0 auto',
       }}
@@ -603,7 +806,6 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
           return (
             <motion.div
               key={card.key}
-              layoutId={card.layoutId}
               style={{
                 position: 'absolute',
                 width: `${targetW}px`,
@@ -618,7 +820,7 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
                 backfaceVisibility: 'hidden',
                 willChange: 'transform',
               }}
-              initial={card.layoutId ? undefined : { scale: 0.85, opacity: 0 }}
+              initial={{ scale: 0.85, opacity: 0 }}
               animate={{
                 x: card.offsetX,
                 y: card.offsetY,
@@ -628,9 +830,9 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
               }}
               transition={{
                 type: 'spring',
-                stiffness: 280,
-                damping: 24,
-                mass: 0.7,
+                stiffness: 300,
+                damping: 26,
+                mass: 0.8,
               }}
             >
               <img
@@ -663,6 +865,7 @@ interface HandCanvasProps {
   myPlayerId: string;
   onPlayWild?: (cardId: string, cardKey: string) => void;
   lastPlayedCardKey: string | null;
+  soundEnabled: boolean;
 }
 
 function HandCanvas({
@@ -675,7 +878,8 @@ function HandCanvas({
   room,
   myPlayerId,
   onPlayWild,
-  lastPlayedCardKey
+  lastPlayedCardKey,
+  soundEnabled
 }: HandCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 1024, height: 300 });
@@ -684,6 +888,7 @@ function HandCanvas({
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   // Tracks which card index is shaking (invalid play attempt)
   const [shakingIndex, setShakingIndex] = useState<number | null>(null);
+
 
   // ResizeObserver to dynamically track layout size
   useEffect(() => {
@@ -914,123 +1119,96 @@ function HandCanvas({
       className="w-full max-w-5xl h-[180px] sm:h-[300px] relative overflow-visible flex items-center justify-center"
       style={{ touchAction: 'none' }}
     >
-      <AnimatePresence>
-        {reconciledHand.map((inst, i) => {
-          const key = inst.instanceId;
-          const cardId = inst.cardId;
-          const offset = i - middle;
-          const tX = startX + i * spacing;
-          const tYBase = baseY + Math.abs(offset) * 4;
+      {reconciledHand.map((inst, i) => {
+        const key = inst.instanceId;
+        const cardId = inst.cardId;
+        const offset = i - middle;
+        const tX = startX + i * spacing;
+        const tYBase = baseY + Math.abs(offset) * 4;
 
-          const isSelected = i === selectedCardIndex;
-          const isHovered = i === hoveredIndex;
-          const isDragging = i === draggingIndex;
-          const isShaking = i === shakingIndex;
+        const isSelected = i === selectedCardIndex;
+        const isHovered = i === hoveredIndex;
+        const isDragging = i === draggingIndex;
+        const isShaking = i === shakingIndex;
 
-          let targetY = tYBase;
-          let targetScale = 1.0;
-          let zIndex = isSelected ? 200 + i : i;
+        let targetScale = 1.0;
+        let zIndex = isSelected ? 200 + i : i;
 
-          let shadowStyle = 'drop-shadow(3.54px 3.54px 4px rgba(0,0,0,0.2))';
-          if (isDragging)  shadowStyle = 'drop-shadow(12px 18px 10px rgba(0,0,0,0.3))';
-          else if (isSelected) shadowStyle = 'drop-shadow(5px 8px 6px rgba(0,0,0,0.25))';
-          else if (isHovered)  shadowStyle = 'drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))';
+        let shadowStyle = 'drop-shadow(3.54px 3.54px 4px rgba(0,0,0,0.2))';
+        if (isDragging)  shadowStyle = 'drop-shadow(12px 18px 10px rgba(0,0,0,0.3))';
+        else if (isSelected) shadowStyle = 'drop-shadow(5px 8px 6px rgba(0,0,0,0.25))';
+        else if (isHovered)  shadowStyle = 'drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))';
 
-          const isPlayable = validatePlayableClient(cardId);
+        const isPlayable = validatePlayableClient(cardId);
 
-          if (isDragging) {
-            targetScale = 1.12;
-            zIndex = 1000;
-          } else if (isSelected) {
-            targetY = tYBase - 35;
-          } else if (isHovered) {
-            targetY = tYBase - 15;
-            targetScale = isPlayable ? 1.08 : 1.03;
-          }
+        if (isDragging) {
+          targetScale = 1.12;
+          zIndex = 1000;
+        }
 
-          const targetRot = isDragging ? 0 : offset * 2.0;
+        const targetRot = isDragging ? 0 : offset * 2.0;
 
-          const assetUrl = getCardAssetUrl(cardId, side, gameMode);
+        const assetUrl = getCardAssetUrl(cardId, side, gameMode);
 
-          return (
-            <motion.div
-              key={key}
-              layoutId={key}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                width: `${targetW}px`,
-                height: `${targetH}px`,
-                transformOrigin: 'center center',
-                zIndex,
-                cursor: isDragging ? 'grabbing' : 'pointer',
-                touchAction: 'none',
-                filter: shadowStyle,
-                borderRadius: isMobile ? '7px' : '12px',
-                overflow: 'hidden',
-                backgroundColor: room?.side === 'dark' ? '#18181b' : '#ffffff',
-              }}
-              initial={{
-                x: cx - targetW / 2,
-                y: dimensions.height + 200,
-                rotate: 0,
-                scale: 0.1,
-              }}
+        return (
+          <motion.div
+            key={key}
+            style={{
+              position: 'absolute',
+              left: `${tX - targetW / 2}px`,
+              top: `${tYBase - targetH / 2}px`,
+              width: `${targetW}px`,
+              height: `${targetH}px`,
+              transformOrigin: 'center center',
+              zIndex,
+              cursor: isDragging ? 'grabbing' : 'pointer',
+              touchAction: 'none',
+              filter: shadowStyle,
+              borderRadius: isMobile ? '7px' : '12px',
+              overflow: 'hidden',
+              backgroundColor: room?.side === 'dark' ? '#18181b' : '#ffffff',
+            }}
+            animate={{
+              x: isShaking ? [-8, 8, -6, 6, 0] : 0,
+              y: isSelected ? -35 : (isHovered ? -15 : 0),
+              rotate: targetRot,
+              scale: targetScale,
+            }}
+            transition={{
+              type: 'spring',
+              stiffness: 400,
+              damping: 30,
+              // For shake: run the x keyframes fast
+              ...(isShaking ? { duration: 0.4 } : {})
+            }}
+            onMouseEnter={() => setHoveredIndex(i)}
+            onMouseLeave={() => setHoveredIndex(prev => prev === i ? null : prev)}
+            onClick={() => handleCardTap(cardId, i, key)}
+            drag
+            dragElastic={1.0}
+            dragMomentum={false}
+            dragSnapToOrigin={true}
+            onDragStart={() => {
+              setDraggingIndex(i);
+              playSoundEffect('drag', soundEnabled);
+            }}
+            onDrag={handleDrag}
+            onDragEnd={(e, info) => handleDragEnd(e, info, cardId, i, key)}
+          >
+            <motion.img
+              src={assetUrl}
+              alt={cardId}
+              className="w-full h-full object-contain pointer-events-none select-none"
+              style={{ imageRendering: 'pixelated' }}
               animate={{
-                x: isShaking ? [
-                  tX - targetW / 2 - 8,
-                  tX - targetW / 2 + 8,
-                  tX - targetW / 2 - 6,
-                  tX - targetW / 2 + 6,
-                  tX - targetW / 2,
-                ] : tX - targetW / 2,
-                y: targetY - targetH / 2,
-                rotate: targetRot,
-                scale: targetScale,
+                opacity: isPlayable ? 1.0 : (isDragging ? 0.8 : (isHovered ? 0.65 : 0.45)),
+                filter: isPlayable ? 'none' : 'grayscale(35%) brightness(0.85)',
               }}
-              exit={{
-                // When a card is removed from hand (played), AnimatePresence fires this exit.
-                // But because the card shares layoutId with the new discard pile entry,
-                // Framer Motion FLIP-animates it flying to the pile instead of this exit.
-                opacity: 0,
-                scale: 0.6,
-                transition: { duration: 0.18 }
-              }}
-              transition={{
-                type: 'spring',
-                stiffness: 260,
-                damping: 24,
-                mass: 0.8,
-                // For shake: run the x keyframes fast
-                ...(isShaking ? { duration: 0.4 } : {})
-              }}
-              onMouseEnter={() => setHoveredIndex(i)}
-              onMouseLeave={() => setHoveredIndex(prev => prev === i ? null : prev)}
-              onClick={() => handleCardTap(cardId, i, key)}
-              drag
-              dragElastic={1.0}
-              dragMomentum={false}
-              dragSnapToOrigin={true}
-              onDragStart={() => setDraggingIndex(i)}
-              onDrag={handleDrag}
-              onDragEnd={(e, info) => handleDragEnd(e, info, cardId, i, key)}
-            >
-              <motion.img
-                src={assetUrl}
-                alt={cardId}
-                className="w-full h-full object-contain pointer-events-none select-none"
-                style={{ imageRendering: 'pixelated' }}
-                animate={{
-                  opacity: isPlayable ? 1.0 : (isDragging ? 0.8 : (isHovered ? 0.65 : 0.45)),
-                  filter: isPlayable ? 'none' : 'grayscale(35%) brightness(0.85)',
-                }}
-                transition={{ duration: 0.18 }}
-              />
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
+              transition={{ duration: 0.18 }}
+            />
+          </motion.div>
+        );
+      })}
     </div>
   );
 }
@@ -1086,6 +1264,10 @@ function App() {
     }
   });
   const [room, setRoom] = useState<any>(null);
+  const roomRef = useRef(room);
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
   const [myPlayerId, setMyPlayerId] = useState<string>(() => {
     try {
       return localStorage.getItem('uno_my_player_id') || '';
@@ -1102,8 +1284,30 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const soundEnabledRef = useRef(soundEnabled);
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
   const [lastPlayedCardKey, setLastPlayedCardKey] = useState<string | null>(null);
   const [pendingWildCard, setPendingWildCard] = useState<{ cardId: string; key: string } | null>(null);
+  const lastWinnerRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (room && room.winner) {
+      if (room.winner !== lastWinnerRef.current) {
+        lastWinnerRef.current = room.winner;
+        const isVictory = room.winner === myPlayerId;
+        if (soundEnabled) {
+          playGameEndSound(isVictory);
+        }
+        if (isVictory) {
+          triggerVictoryConfetti();
+        }
+      }
+    } else {
+      lastWinnerRef.current = null;
+    }
+  }, [room?.winner, myPlayerId, soundEnabled]);
 
   const handleHostGame = () => {
     if (!playerName.trim()) {
@@ -1393,11 +1597,30 @@ function App() {
       if (updatedRoom && updatedRoom.gameMode) {
         setGameMode(updatedRoom.gameMode);
       }
+      if (updatedRoom && !updatedRoom.gameStarted) {
+        setView('lobby');
+      }
     });
 
     socket.on('game_state_updated', (updatedRoom) => {
       console.log('Socket game_state_updated received. Payload:', updatedRoom);
-      setRoom(updatedRoom);
+      setRoom((prevRoom: any) => {
+        if (prevRoom && updatedRoom) {
+          const prevDiscardSize = prevRoom.discardPileSize || 0;
+          const nextDiscardSize = updatedRoom.discardPileSize || 0;
+          const prevDeckSize = prevRoom.deckSize || 0;
+          const nextDeckSize = updatedRoom.deckSize || 0;
+
+          if (nextDiscardSize > prevDiscardSize) {
+            playSoundEffect('play', soundEnabledRef.current);
+          } else if (nextDiscardSize < prevDiscardSize && nextDiscardSize > 0) {
+            playSoundEffect('shuffle', soundEnabledRef.current);
+          } else if (nextDeckSize < prevDeckSize && nextDiscardSize === prevDiscardSize) {
+            playSoundEffect('draw', soundEnabledRef.current);
+          }
+        }
+        return updatedRoom;
+      });
       if (updatedRoom && updatedRoom.gameStarted) {
         setView('game');
       }
@@ -1405,7 +1628,35 @@ function App() {
 
     socket.on('game_started', () => {
       console.log('Socket game_started received');
+      playSoundEffect('shuffle', soundEnabledRef.current);
       setView('game');
+    });
+
+    socket.on('uno_called', (data: any) => {
+      console.log('Socket uno_called received:', data);
+      playSoundEffect('uno', soundEnabledRef.current);
+    });
+
+    socket.on('uno_caught', (data: any) => {
+      console.log('Socket uno_caught received:', data);
+      playSoundEffect('draw', soundEnabledRef.current);
+    });
+
+    socket.on('challenge_resolved', (data: any) => {
+      console.log('Socket challenge_resolved received:', data);
+      const currentRoom = roomRef.current;
+      if (!currentRoom) return;
+
+      const challenger = currentRoom.players.find((p: any) => p.id === data.challengerId)?.name || 'Someone';
+      const playedByPlayer = currentRoom.players.find((p: any) => p.id === currentRoom.pendingChallenge?.playedBy)?.name || 'the opponent';
+
+      if (data.guilty) {
+        alert(`${challenger} successfully challenged ${playedByPlayer}! ${playedByPlayer} had a matching color and was forced to draw ${data.cardsDrawn} cards!`);
+      } else if (data.guilty === false) {
+        alert(`${challenger} challenged ${playedByPlayer} but failed! ${challenger} had to draw ${data.cardsDrawn} cards and lost their turn!`);
+      } else if (data.accepted) {
+        console.log(`${challenger} accepted the penalty and drew ${data.cardsDrawn} cards.`);
+      }
     });
 
     socket.on('error', (err: any) => {
@@ -1477,6 +1728,9 @@ function App() {
       socket.off('reconnect_success');
       socket.off('reconnect_failed');
       socket.off('kicked');
+      socket.off('uno_called');
+      socket.off('uno_caught');
+      socket.off('challenge_resolved');
     };
   }, []);
 
@@ -2095,6 +2349,11 @@ function App() {
       return list;
     })();
 
+    const scoreboardPlayers = (() => {
+      if (!room || !room.players) return [];
+      return [...room.players].sort((a: any, b: any) => (a.handCardCount || 0) - (b.handCardCount || 0));
+    })();
+
     return (
       <LayoutGroup>
         <div className="h-screen w-screen bg-white relative overflow-hidden font-sans select-none flex flex-col items-center justify-end pb-16">
@@ -2105,38 +2364,38 @@ function App() {
         {opponents.map((opp, idx) => {
           let positionClass = '';
           let fanDirection: 'left' | 'right' | 'down' = 'down';
-          let layoutClass = 'flex items-center gap-4';
+          let layoutClass = 'flex items-center gap-8 sm:gap-12';
 
           if (opponents.length === 1) {
             // 1 Opponent: Top Center
             positionClass = 'absolute top-6 left-1/2 -translate-x-1/2 z-30';
             fanDirection = 'down';
-            layoutClass = 'flex items-center gap-4 flex-row-reverse';
+            layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
           } else if (opponents.length === 2) {
             // 2 Opponents: Left Center, Right Center
             if (idx === 0) {
               positionClass = 'absolute left-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
               fanDirection = 'right';
-              layoutClass = 'flex items-center gap-4';
+              layoutClass = 'flex items-center gap-8 sm:gap-12';
             } else {
               positionClass = 'absolute right-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
               fanDirection = 'left';
-              layoutClass = 'flex items-center gap-4 flex-row-reverse';
+              layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
             }
           } else {
             // 3 Opponents: Left, Top, Right
             if (idx === 0) {
               positionClass = 'absolute left-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
               fanDirection = 'right';
-              layoutClass = 'flex items-center gap-4';
+              layoutClass = 'flex items-center gap-8 sm:gap-12';
             } else if (idx === 1) {
               positionClass = 'absolute top-6 left-1/2 -translate-x-1/2 z-30';
               fanDirection = 'down';
-              layoutClass = 'flex items-center gap-4 flex-row-reverse';
+              layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
             } else {
               positionClass = 'absolute right-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
               fanDirection = 'left';
-              layoutClass = 'flex items-center gap-4 flex-row-reverse';
+              layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
             }
           }
 
@@ -2148,8 +2407,10 @@ function App() {
                   avatarSeed={opp.avatarSeed || opp.name}
                   cardCount={opp.handCardCount || 0}
                   isTurn={room.players[room.currentTurn]?.id === opp.id}
+                  isMe={false}
+                  turnStartedAt={room.turnStartedAt}
                 />
-                <div className="w-[160px] h-[86px] sm:w-[260px] sm:h-[136px] relative flex items-center justify-center">
+                <div className="relative flex items-center justify-center h-[86px] sm:h-[136px]">
                   <OpponentCardFan 
                     cardCount={opp.handCardCount || 0} 
                     direction={fanDirection} 
@@ -2169,6 +2430,8 @@ function App() {
             avatarSeed={player?.avatarSeed || ''}
             cardCount={hand.length}
             isTurn={room.players[room.currentTurn]?.id === myPlayerId}
+            isMe={true}
+            turnStartedAt={room.turnStartedAt}
           />
         </div>
 
@@ -2314,6 +2577,7 @@ function App() {
           myPlayerId={myPlayerId}
           onPlayWild={(cardId, cardKey) => setPendingWildCard({ cardId, key: cardKey })}
           lastPlayedCardKey={lastPlayedCardKey}
+          soundEnabled={soundEnabled}
         />
 
         {/* Wild Color Selection Modal */}
@@ -2370,6 +2634,195 @@ function App() {
                 >
                   Cancel
                 </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Challenge Wild Draw Modal */}
+        <AnimatePresence>
+          {room?.pendingChallenge && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full"
+              >
+                {room.pendingChallenge.targetPlayerId === myPlayerId ? (
+                  <>
+                    <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center">
+                      {room.pendingChallenge.type.replace(/_/g, ' ')} Played!
+                    </h3>
+                    <p className="text-xs text-neutral-muted font-bold text-center mb-6 leading-relaxed">
+                      {room.players.find((p: any) => p.id === room.pendingChallenge.playedBy)?.name || 'Someone'} played a {room.pendingChallenge.type.replace(/_/g, ' ')}. You can challenge it if you think they had a matching color card in their hand!
+                    </p>
+                    <div className="flex flex-col gap-3 w-full">
+                      <button
+                        onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: true })}
+                        className="btn-3d w-full"
+                      >
+                        <span className="btn-3d-shadow" />
+                        <span className="btn-3d-edge btn-3d-edge-purple" />
+                        <div className="btn-3d-front btn-3d-front-purple flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                          Challenge Play
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: false })}
+                        className="btn-3d w-full"
+                      >
+                        <span className="btn-3d-shadow" />
+                        <span className="btn-3d-edge btn-3d-edge-blue" />
+                        <div className="btn-3d-front btn-3d-front-blue flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                          Accept (+Draw)
+                        </div>
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center animate-pulse">
+                      Resolving Challenge...
+                    </h3>
+                    <p className="text-xs text-neutral-muted font-bold text-center leading-relaxed">
+                      Waiting for {room.players.find((p: any) => p.id === room.pendingChallenge.targetPlayerId)?.name || 'the next player'} to decide whether to challenge the play.
+                    </p>
+                  </>
+                )}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Game End Victory/Defeat Modal Overlay */}
+        <AnimatePresence>
+          {room.winner && (
+            <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 sm:p-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-md w-full select-none"
+              >
+                {/* Visual Header */}
+                {room.winner === myPlayerId ? (
+                  <div className="flex flex-col items-center mb-6">
+                    <Crown className="w-12 h-12 text-brand-yellow drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] animate-bounce" style={{ fill: '#ecd407' }} />
+                    <h2 className="text-[#0f172a] font-black text-3xl tracking-widest uppercase mt-2">
+                      Victory!
+                    </h2>
+                    <p className="text-xs font-black text-brand-green uppercase tracking-wider mt-1 animate-pulse">
+                      You dominated the table!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center mb-6">
+                    <h2 className="text-[#0f172a] font-black text-3xl tracking-widest uppercase">
+                      Defeat
+                    </h2>
+                    <p className="text-xs font-black text-neutral-muted uppercase tracking-wider mt-1">
+                      Better luck next round!
+                    </p>
+                  </div>
+                )}
+
+                {/* Winner's Avatar Showcase */}
+                {(() => {
+                  const winnerPlayer = room.players.find((p: any) => p.id === room.winner);
+                  if (!winnerPlayer) return null;
+                  const winnerAvatarUri = createAvatar(adventurer, {
+                    seed: winnerPlayer.avatarSeed || winnerPlayer.name,
+                    backgroundColor: ['cc3333', '0956bf', '379711', '8338ec']
+                  }).toDataUri();
+
+                  return (
+                    <div className="flex flex-col items-center mb-6">
+                      <div className={`relative w-20 h-20 bg-white border-4 border-[#0f172a] rounded-[16px] shadow-[4px_4px_0_#0f172a] overflow-hidden flex items-center justify-center ${room.winner === myPlayerId ? 'ring-4 ring-brand-yellow' : ''}`}>
+                        {winnerAvatarUri && (
+                          <img src={winnerAvatarUri} alt={winnerPlayer.name} className="w-full h-full object-cover" />
+                        )}
+                      </div>
+                      <span className="font-extrabold text-sm text-[#0f172a] uppercase tracking-wide mt-3">
+                        {winnerPlayer.name} takes the crown
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Scoreboard / Leaderboard Table */}
+                <div className="w-full bg-neutral-bg border-2 border-[#0f172a] rounded-[16px] p-4 shadow-[3px_3px_0_#0f172a] mb-6">
+                  <div className="text-[10px] font-black text-neutral-text uppercase tracking-widest border-b-2 border-[#0f172a] pb-1.5 mb-2.5 text-left">
+                    Round Standings
+                  </div>
+                  <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto no-scrollbar">
+                    {scoreboardPlayers.map((p: any, rankIdx: number) => {
+                      const avatarUri = createAvatar(adventurer, {
+                        seed: p.avatarSeed || p.name,
+                        backgroundColor: ['cc3333', '0956bf', '379711', '8338ec']
+                      }).toDataUri();
+                      const isSelf = p.id === myPlayerId;
+
+                      return (
+                        <div
+                          key={p.id}
+                          className={`flex items-center justify-between border-2 border-[#0f172a] rounded-[10px] p-2 shadow-[1.5px_1.5px_0_#0f172a] ${isSelf ? 'bg-white' : 'bg-neutral-card'}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-xs text-[#0f172a] w-4 text-center">
+                              #{rankIdx + 1}
+                            </span>
+                            <div className="w-7 h-7 rounded-full border border-[#0f172a] overflow-hidden bg-neutral-bg">
+                              <img src={avatarUri} alt={p.name} className="w-full h-full object-cover" />
+                            </div>
+                            <span className="font-bold text-xs text-[#0f172a] truncate max-w-[120px]">
+                              {p.name}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-black text-neutral-text bg-white px-2 py-0.5 border border-[#0f172a] rounded">
+                            {p.handCardCount || 0} cards
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col gap-3 w-full items-center">
+                  {myPlayerId === room.hostId ? (
+                    <button
+                      onClick={() => socket.emit('back_to_lobby', { roomId: room.roomId })}
+                      className="btn-3d w-full"
+                    >
+                      <span className="btn-3d-shadow" />
+                      <span className="btn-3d-edge btn-3d-edge-blue" />
+                      <div className="btn-3d-front btn-3d-front-blue flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                        Back to Lobby
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="text-[10px] font-black text-neutral-muted uppercase tracking-wider text-center py-2 animate-pulse">
+                      Waiting for host to return to lobby...
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (confirm("Are you sure you want to leave this game room?")) {
+                        handleLeaveLobby();
+                      }
+                    }}
+                    className="btn-3d w-full"
+                  >
+                    <span className="btn-3d-shadow" />
+                    <span className="btn-3d-edge btn-3d-edge-red" />
+                    <div className="btn-3d-front btn-3d-front-red flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                      Leave Room
+                    </div>
+                  </button>
+                </div>
               </motion.div>
             </div>
           )}

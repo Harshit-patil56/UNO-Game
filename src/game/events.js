@@ -17,6 +17,7 @@ export function redactGameState(gameState, recipientPlayerId) {
     gameMode: gameState.gameMode,
     side: gameState.side,
     currentTurn: gameState.currentTurn,
+    turnStartedAt: gameState.turnStartedAt || null,
     direction: gameState.direction,
     currentColor: gameState.currentColor,
     pendingDraw: gameState.pendingDraw,

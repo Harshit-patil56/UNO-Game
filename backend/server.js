@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { registerSocketHandlers } from '../src/socket/index.js';
 import { getRoom } from '../src/rooms/index.js';
 
+// Configure dot env and force nodemon reload trigger (turnStartedAt sync added)
 dotenv.config();
 
 const app = express();

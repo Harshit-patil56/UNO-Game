@@ -1,7 +1,17 @@
 import crypto from 'crypto';
+import fs from 'fs';
 import { redactGameState } from '../game/events.js';
 import { createRoom, joinRoom, leaveRoom, getRoom } from '../rooms/index.js';
 import { createSession, getSession, removeSession } from '../game/reconnect.js';
+
+function logToFile(msg) {
+  try {
+    fs.appendFileSync('c:/Hackthon/UNO/server.log', `[${new Date().toISOString()}] ${msg}\n`);
+  } catch (e) {
+    // Ignore
+  }
+}
+
 import {
   playCard,
   drawCard,
@@ -23,6 +33,132 @@ const socketToToken = new Map();
 
 // Map to track disconnect grace period timers: playerId -> setTimeout reference
 const disconnectTimers = new Map();
+
+// Map to track active turn timers per room: roomId -> setTimeout reference
+const turnTimers = new Map();
+
+/**
+ * Clears the active turn timer for a given room.
+ * 
+ * @param {string} roomId 
+ */
+export function clearRoomTurnTimer(roomId) {
+  logToFile(`clearRoomTurnTimer called for room ${roomId}`);
+  const timer = turnTimers.get(roomId);
+  if (timer) {
+    clearTimeout(timer);
+    turnTimers.delete(roomId);
+    logToFile(`Timer cleared and removed for room ${roomId}`);
+  } else {
+    logToFile(`No timer found to clear for room ${roomId}`);
+  }
+}
+
+/**
+ * Starts a 30-second turn timer for the active player in a room.
+ * If the timer expires, a card is drawn automatically and the turn is passed.
+ * 
+ * @param {Object} io - Socket.IO server instance.
+ * @param {string} roomId - The ID of the room.
+ */
+export function startRoomTurnTimer(io, roomId) {
+  logToFile(`startRoomTurnTimer called for room ${roomId}`);
+  clearRoomTurnTimer(roomId);
+  const room = getRoom(roomId);
+  if (!room) {
+    logToFile(`Room ${roomId} not found`);
+    return;
+  }
+  if (!room.gameStarted) {
+    logToFile(`Room ${roomId} game has not started`);
+    return;
+  }
+  if (room.winner) {
+    logToFile(`Room ${roomId} already has a winner: ${room.winner}`);
+    return;
+  }
+
+  const activePlayer = room.players[room.currentTurn];
+  if (!activePlayer) {
+    logToFile(`No active player found for turn index ${room.currentTurn} in room ${roomId}`);
+    return;
+  }
+
+  const playerTurnId = activePlayer.id;
+  logToFile(`Setting 30s timeout for player ${activePlayer.name} (${playerTurnId}) in room ${roomId}`);
+
+  const timer = setTimeout(() => {
+    try {
+      logToFile(`Timeout fired for player ${playerTurnId} in room ${roomId}`);
+      const currentRoom = getRoom(roomId);
+      if (!currentRoom) {
+        logToFile(`Timeout callback: Room ${roomId} no longer exists`);
+        return;
+      }
+      if (!currentRoom.gameStarted) {
+        logToFile(`Timeout callback: Room ${roomId} game has stopped/returned to lobby`);
+        return;
+      }
+      if (currentRoom.winner) {
+        logToFile(`Timeout callback: Room ${roomId} already won by ${currentRoom.winner}`);
+        return;
+      }
+
+      const currentActivePlayer = currentRoom.players[currentRoom.currentTurn];
+      if (!currentActivePlayer) {
+        logToFile(`Timeout callback: No current active player found for index ${currentRoom.currentTurn}`);
+        return;
+      }
+      if (currentActivePlayer.id !== playerTurnId) {
+        logToFile(`Timeout callback: Turn already changed. Current active player is ${currentActivePlayer.name} (${currentActivePlayer.id}), expected ${playerTurnId}`);
+        return;
+      }
+
+      logToFile(`Timeout callback executing auto-draw/pass for ${currentActivePlayer.name} (${playerTurnId})`);
+
+      // Perform auto-draw and pass
+      try {
+        if (currentRoom.pendingChallenge) {
+          logToFile(`Resolving pending challenge for player ${playerTurnId}`);
+          resolveChallenge(currentRoom, playerTurnId, false);
+        } else {
+          logToFile(`Drawing card for player ${playerTurnId}`);
+          drawCard(currentRoom, playerTurnId);
+          logToFile(`Drawn card playable state: ${currentRoom.drawnPlayableCard}`);
+          if (currentRoom.drawnPlayableCard) {
+            logToFile(`Passing turn for player ${playerTurnId} (playable card drawn)`);
+            passTurn(currentRoom, playerTurnId);
+          }
+        }
+        currentRoom.turnStartedAt = Date.now();
+      } catch (err) {
+        logToFile(`[Turn Timer Error] Failed to execute auto-action: ${err.message}. Stack: ${err.stack}`);
+        // Fallback: forcefully advance the turn to prevent game freeze
+        try {
+          currentRoom.drawnPlayableCard = null;
+          currentRoom.unoCatchablePlayerId = null;
+          currentRoom.currentTurn = nextTurn(currentRoom.currentTurn, currentRoom.direction, currentRoom.players.length);
+          currentRoom.turnStartedAt = Date.now();
+          logToFile(`Forcefully advanced turn fallback to turn index ${currentRoom.currentTurn}`);
+        } catch (e) {
+          logToFile(`[Turn Timer Error] Critical turn advancement fallback failed: ${e.message}`);
+        }
+      }
+
+      broadcastState(io, currentRoom);
+      logToFile(`State broadcasted after auto-turn`);
+
+      // Start timer for the next player
+      startRoomTurnTimer(io, roomId);
+    } catch (err) {
+      logToFile(`[Turn Timer Callback Error]: ${err.message}. Stack: ${err.stack}`);
+    }
+  }, 30000); // 30 seconds
+
+  turnTimers.set(roomId, timer);
+}
+
+
 
 /**
  * Broadcasts the redacted game state to all players in the room individually.
@@ -265,9 +401,52 @@ export function registerSocketHandlers(io, socket) {
         room.currentTurn = 0;
       }
 
+      room.turnStartedAt = Date.now();
       io.to(room.roomId).emit('game_started');
       broadcastState(io, room);
+      startRoomTurnTimer(io, room.roomId);
       console.log(`Game started in room ${room.roomId}`);
+    } catch (err) {
+      sendError(err.message);
+    }
+  });
+
+  // 4b. Back to Lobby (Host only)
+  socket.on('back_to_lobby', ({ roomId }) => {
+    try {
+      const token = socketToToken.get(socket.id);
+      const session = getSession(sessions, token);
+      if (!session || session.roomId !== roomId) {
+        return sendError('Unauthorized or invalid session');
+      }
+
+      const room = getRoom(roomId);
+      if (!room) return sendError('Room not found');
+
+      if (room.hostId !== session.playerId) {
+        return sendError('Only the host can return players to the lobby');
+      }
+
+      // Reset room state for lobby
+      room.gameStarted = false;
+      room.winner = null;
+      room.deck = [];
+      room.discardPile = [];
+      room.currentColor = null;
+      room.pendingDraw = 0;
+      room.unoCatchablePlayerId = null;
+      room.drawnPlayableCard = null;
+      room.pendingChallenge = null;
+      
+      // Reset player hands and ready status
+      room.players.forEach(p => {
+        p.hand = [];
+        p.isReady = p.id === room.hostId; // Host is ready, others need to ready up
+      });
+
+      clearRoomTurnTimer(room.roomId);
+      broadcastState(io, room);
+      console.log(`Room ${room.roomId} returned to lobby by Host`);
     } catch (err) {
       sendError(err.message);
     }
@@ -286,12 +465,16 @@ export function registerSocketHandlers(io, socket) {
       if (!room) return sendError('Room not found');
 
       const result = playCard(room, session.playerId, cardId, chosenColor);
+      room.turnStartedAt = Date.now();
       
       broadcastState(io, room);
 
       if (room.winner) {
+        clearRoomTurnTimer(room.roomId);
         io.to(room.roomId).emit('game_ended', { winnerId: room.winner });
         console.log(`Game won by ${session.name} in room ${room.roomId}`);
+      } else {
+        startRoomTurnTimer(io, room.roomId);
       }
     } catch (err) {
       sendError(err.message);
@@ -310,7 +493,14 @@ export function registerSocketHandlers(io, socket) {
       const room = getRoom(roomId);
       if (!room) return sendError('Room not found');
 
+      const activePlayerBefore = room.players[room.currentTurn]?.id;
       drawCard(room, session.playerId);
+      const activePlayerAfter = room.players[room.currentTurn]?.id;
+
+      if (activePlayerBefore !== activePlayerAfter) {
+        room.turnStartedAt = Date.now();
+        startRoomTurnTimer(io, room.roomId);
+      }
       broadcastState(io, room);
     } catch (err) {
       sendError(err.message);
@@ -330,7 +520,9 @@ export function registerSocketHandlers(io, socket) {
       if (!room) return sendError('Room not found');
 
       passTurn(room, session.playerId);
+      room.turnStartedAt = Date.now();
       broadcastState(io, room);
+      startRoomTurnTimer(io, room.roomId);
     } catch (err) {
       sendError(err.message);
     }
@@ -349,6 +541,7 @@ export function registerSocketHandlers(io, socket) {
       if (!room) return sendError('Room not found');
 
       const outcome = resolveChallenge(room, session.playerId, wantsToChallenge);
+      room.turnStartedAt = Date.now();
       
       // Notify the room of the challenge outcome
       io.to(room.roomId).emit('challenge_resolved', {
@@ -358,6 +551,7 @@ export function registerSocketHandlers(io, socket) {
       });
 
       broadcastState(io, room);
+      startRoomTurnTimer(io, room.roomId);
     } catch (err) {
       sendError(err.message);
     }
@@ -603,6 +797,7 @@ export function registerSocketHandlers(io, socket) {
           broadcastState(io, updatedRoom);
         } else {
           // Room deleted because it's empty
+          clearRoomTurnTimer(room.roomId);
           console.log(`Room ${room.roomId} purged because all players left`);
         }
       }, 60000); // 60 seconds
@@ -623,6 +818,7 @@ export function registerSocketHandlers(io, socket) {
           broadcastState(io, updatedRoom);
         } else {
           // Room deleted because it's empty
+          clearRoomTurnTimer(room.roomId);
           console.log(`Room ${room.roomId} purged because all players left`);
         }
       }, 10000); // 10 seconds
