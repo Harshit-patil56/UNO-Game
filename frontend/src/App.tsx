@@ -143,6 +143,89 @@ export function UnoCard({ cardId, isBack = false, onClick, className = '', side 
   );
 }
 
+interface ParsedCard {
+  cardId: string;
+  face: string;
+  colorGroup: number; // 0: Red/Orange, 1: Blue/Pink, 2: Green/Teal, 3: Yellow/Purple, 4: Wild
+  typeGroup: number;  // 0: Number, 1: Skip, 2: Reverse, 3: Draw, 4: Flip, 5: Wild, 6: Wild Draw
+  numberValue: number; // For number cards (0-9), otherwise 0
+  specificType: string;
+}
+
+const parseCardForSorting = (
+  cardId: string,
+  side: 'light' | 'dark',
+  gameMode: 'classic' | 'flip'
+): ParsedCard => {
+  const face = getActiveCardFaceFrontend(cardId, side, gameMode);
+  const parts = face.split('_');
+
+  // Wild check
+  if (face.startsWith('WILD')) {
+    let typeGroup = 5; // Wild
+    if (face.includes('DRAW') || face.includes('COLOR')) {
+      typeGroup = 6; // Wild Draw
+    }
+    return {
+      cardId,
+      face,
+      colorGroup: 4, // Wild color group
+      typeGroup,
+      numberValue: 0,
+      specificType: face
+    };
+  }
+
+  // Regular colored cards
+  const colorRaw = parts[0].toUpperCase();
+  let colorGroup = 4;
+  if (colorRaw === 'RED' || colorRaw === 'ORANGE') colorGroup = 0;
+  else if (colorRaw === 'BLUE' || colorRaw === 'PINK') colorGroup = 1;
+  else if (colorRaw === 'GREEN' || colorRaw === 'TEAL') colorGroup = 2;
+  else if (colorRaw === 'YELLOW' || colorRaw === 'PURPLE') colorGroup = 3;
+
+  // Types
+  let typeGroup = 0; // default number
+  let numberValue = 0;
+  let specificType = parts[1] || '';
+
+  if (face.includes('_NUMBER_')) {
+    typeGroup = 0;
+    numberValue = parseInt(parts[2], 10) || 0;
+  } else if (face.includes('_SKIP')) {
+    typeGroup = 1;
+  } else if (face.includes('_REVERSE')) {
+    typeGroup = 2;
+  } else if (face.includes('_DRAW_')) {
+    typeGroup = 3;
+    numberValue = parseInt(parts[2], 10) || 0; // Draw Five or Draw One/Two
+  } else if (face.includes('_FLIP')) {
+    typeGroup = 4;
+  }
+
+  return {
+    cardId,
+    face,
+    colorGroup,
+    typeGroup,
+    numberValue,
+    specificType
+  };
+};
+
+const compareCards = (a: ParsedCard, b: ParsedCard): number => {
+  if (a.colorGroup !== b.colorGroup) {
+    return a.colorGroup - b.colorGroup;
+  }
+  if (a.typeGroup !== b.typeGroup) {
+    return a.typeGroup - b.typeGroup;
+  }
+  if (a.numberValue !== b.numberValue) {
+    return a.numberValue - b.numberValue;
+  }
+  return a.face.localeCompare(b.face);
+};
+
 interface HandCanvasProps {
   hand: string[];
   side: 'light' | 'dark';
@@ -190,6 +273,15 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
     });
   };
 
+  const sortedHand = useMemo(() => {
+    if (!Array.isArray(hand)) return [];
+    return [...hand].sort((aId, bId) => {
+      const aParsed = parseCardForSorting(aId, side, gameMode);
+      const bParsed = parseCardForSorting(bId, side, gameMode);
+      return compareCards(aParsed, bParsed);
+    });
+  }, [hand, side, gameMode]);
+
   if (!Array.isArray(hand)) {
     return (
       <div
@@ -202,7 +294,7 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
     );
   }
 
-  const count = hand.length;
+  const count = sortedHand.length;
   const isMobile = dimensions.width < 640;
   
   const targetH = isMobile ? 130 : 220;
@@ -223,7 +315,7 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
 
   // Generate unique keys for duplicate cardId values to prevent layout jumping
   const counts = new Map<string, number>();
-  const cardKeys = hand.map((cardId) => {
+  const cardKeys = sortedHand.map((cardId) => {
     const currentCount = counts.get(cardId) || 0;
     counts.set(cardId, currentCount + 1);
     return `${cardId}__${currentCount}`;
@@ -236,7 +328,7 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
       style={{ touchAction: 'none' }}
     >
       <AnimatePresence>
-        {hand.map((cardId, i) => {
+        {sortedHand.map((cardId, i) => {
           const key = cardKeys[i];
           const offset = i - middle;
           const tX = startX + i * spacing;
