@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { Users, Cpu, ArrowLeft, Crown, Copy, Check, UserMinus, Settings, BookOpen, Volume2, VolumeX, LogOut } from 'lucide-react';
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
@@ -226,19 +226,209 @@ const compareCards = (a: ParsedCard, b: ParsedCard): number => {
   return a.face.localeCompare(b.face);
 };
 
+interface DiscardHistoryCard {
+  key: string;
+  cardId: string;
+  layoutId?: string;
+  rotation: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+interface DiscardPileProps {
+  room: any;
+  side: 'light' | 'dark';
+  gameMode: 'classic' | 'flip';
+  lastPlayedCardKey: string | null;
+  onResetPlayedKey: () => void;
+}
+
+function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey }: DiscardPileProps) {
+  const [discardHistory, setDiscardHistory] = useState<DiscardHistoryCard[]>([]);
+  const lastTopRef = useRef<string | null>(null);
+  const lastSizeRef = useRef<number>(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!room) {
+      setDiscardHistory([]);
+      lastTopRef.current = null;
+      lastSizeRef.current = 0;
+      return;
+    }
+
+    const currentTop = room.discardPileTop;
+    const currentSize = room.discardPileSize || 0;
+
+    if (!currentTop || currentSize === 0) {
+      setDiscardHistory([]);
+      lastTopRef.current = null;
+      lastSizeRef.current = 0;
+      return;
+    }
+
+    const generateOffsets = () => {
+      return {
+        rotation: Math.random() * 16 - 8,
+        offsetX: Math.random() * 12 - 6,
+        offsetY: Math.random() * 8 - 4,
+      };
+    };
+
+    // Case 1: Initial load
+    if (discardHistory.length === 0 || lastSizeRef.current === 0) {
+      const initialPile: DiscardHistoryCard[] = [];
+      for (let i = 0; i < currentSize - 1; i++) {
+        initialPile.push({
+          key: `placeholder_${i}_${Math.random()}`,
+          cardId: 'DECK_BACK',
+          ...generateOffsets()
+        });
+      }
+      initialPile.push({
+        key: `card_${currentTop}_${Date.now()}_${Math.random()}`,
+        cardId: currentTop,
+        ...generateOffsets()
+      });
+      setDiscardHistory(initialPile);
+    }
+    // Case 2: New card played
+    else if (currentSize > lastSizeRef.current || currentTop !== lastTopRef.current) {
+      const newCard: DiscardHistoryCard = {
+        key: `card_${currentTop}_${Date.now()}_${Math.random()}`,
+        cardId: currentTop,
+        layoutId: lastPlayedCardKey || undefined,
+        ...generateOffsets()
+      };
+
+      setDiscardHistory((prev) => {
+        if (prev.length > 0 && prev[prev.length - 1].cardId === currentTop && currentSize === lastSizeRef.current) {
+          return prev;
+        }
+        return [...prev, newCard];
+      });
+
+      if (lastPlayedCardKey && onResetPlayedKey) {
+        onResetPlayedKey();
+      }
+    }
+    // Case 3: Reshuffled/size decreased
+    else if (currentSize < lastSizeRef.current) {
+      const resetPile: DiscardHistoryCard[] = [];
+      for (let i = 0; i < currentSize - 1; i++) {
+        resetPile.push({
+          key: `placeholder_${i}_${Math.random()}`,
+          cardId: 'DECK_BACK',
+          ...generateOffsets()
+        });
+      }
+      resetPile.push({
+        key: `card_${currentTop}_${Date.now()}_${Math.random()}`,
+        cardId: currentTop,
+        ...generateOffsets()
+      });
+      setDiscardHistory(resetPile);
+    }
+
+    lastTopRef.current = currentTop;
+    lastSizeRef.current = currentSize;
+  }, [room?.discardPileTop, room?.discardPileSize, lastPlayedCardKey]);
+
+  const targetH = isMobile ? 130 : 220;
+  const targetW = targetH * 0.69;
+
+  return (
+    <div
+      id="discard-pile-drop-zone"
+      className="relative flex items-center justify-center w-[90px] h-[130px] sm:w-[152px] sm:h-[220px] transition-all duration-200"
+    >
+      <div className="relative w-full h-full">
+        {discardHistory.map((card, i) => {
+          const isTop = i === discardHistory.length - 1;
+          const shadowStyle = isTop
+            ? "0 12px 24px rgba(0,0,0,0.30), 0 4px 8px rgba(0,0,0,0.20)"
+            : "0 6px 12px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.15)";
+
+          const assetUrl = getCardAssetUrl(card.cardId, side, gameMode);
+
+          return (
+            <motion.div
+              key={card.key}
+              layoutId={card.layoutId}
+              style={{
+                position: 'absolute',
+                width: `${targetW}px`,
+                height: `${targetH}px`,
+                left: `calc(50% - ${targetW / 2}px)`,
+                top: `calc(50% - ${targetH / 2}px)`,
+                transformOrigin: 'center center',
+                zIndex: i,
+                boxShadow: shadowStyle,
+                borderRadius: isMobile ? '7px' : '12px',
+                overflow: 'hidden',
+                backfaceVisibility: 'hidden',
+                willChange: 'transform',
+              }}
+              animate={{
+                x: card.offsetX,
+                y: card.offsetY,
+                rotate: card.rotation,
+                scale: 1.0,
+              }}
+              transition={{
+                type: 'spring',
+                stiffness: 200,
+                damping: 20,
+              }}
+            >
+              <img
+                src={assetUrl}
+                alt={card.cardId}
+                className="w-full h-full object-contain pointer-events-none select-none"
+                style={{ imageRendering: 'auto' }}
+              />
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface HandCanvasProps {
   hand: string[];
   side: 'light' | 'dark';
   gameMode: 'classic' | 'flip';
   roomId: string;
   socket: any;
+  onCardPlay?: (key: string) => void;
+  room: any;
+  myPlayerId: string;
+  onPlayWild?: (cardId: string, cardKey: string) => void;
 }
 
-function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
+function HandCanvas({
+  hand,
+  side,
+  gameMode,
+  roomId,
+  socket,
+  onCardPlay,
+  room,
+  myPlayerId,
+  onPlayWild
+}: HandCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 1024, height: 300 });
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
 
   // ResizeObserver to dynamically track layout size
   useEffect(() => {
@@ -262,15 +452,136 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
     setSelectedCardIndex(null);
   }, [hand, side, gameMode]);
 
+  const validatePlayableClient = (cardId: string) => {
+    if (!room) return false;
+
+    // Check if it's my turn
+    const activePlayerIdx = room.currentTurn;
+    const activePlayer = room.players[activePlayerIdx];
+    if (!activePlayer || activePlayer.id !== myPlayerId) {
+      return false;
+    }
+
+    // If they drew a playable card, they can only play THAT card or pass
+    if (room.drawnPlayableCard && room.drawnPlayableCard !== cardId) {
+      return false;
+    }
+
+    const topCardId = room.discardPileTop;
+    if (!topCardId) return true;
+
+    // Normalize faces
+    const face = getActiveCardFaceFrontend(cardId, room.side, room.gameMode);
+    const topFace = getActiveCardFaceFrontend(topCardId, room.side, room.gameMode);
+
+    // Wild cards are always playable
+    if (face.startsWith('WILD')) {
+      return true;
+    }
+
+    const parts = face.split('_');
+    const topParts = topFace.split('_');
+
+    const color = parts[0];
+    const currentColor = room.currentColor;
+
+    // Check color match
+    if (color === currentColor) {
+      return true;
+    }
+
+    // Check type/number match
+    const type = parts[1];
+    const topType = topParts[1];
+
+    if (type === 'NUMBER' && topType === 'NUMBER') {
+      return parts[2] === topParts[2];
+    }
+
+    if (type !== 'NUMBER' && type === topType) {
+      if (type === 'DRAW') {
+        return parts[2] === topParts[2];
+      }
+      return true;
+    }
+
+    return false;
+  };
+
   const handleCardTap = (cardId: string, index: number) => {
+    if (!validatePlayableClient(cardId)) {
+      return;
+    }
+
     setSelectedCardIndex((prev) => {
       if (prev === index) {
-        socket.emit('play_card', { roomId, cardId });
+        const face = getActiveCardFaceFrontend(cardId, side, gameMode);
+        if (face.startsWith('WILD')) {
+          if (onPlayWild) {
+            onPlayWild(cardId, cardKeys[index]);
+          }
+        } else {
+          if (onCardPlay) {
+            onCardPlay(cardKeys[index]);
+          }
+          socket.emit('play_card', { roomId, cardId });
+        }
         return null;
       } else {
         return index;
       }
     });
+  };
+
+  const checkIsOverDropZone = (point: { x: number; y: number }) => {
+    const dropZone = document.getElementById('discard-pile-drop-zone');
+    if (!dropZone) return false;
+    const rect = dropZone.getBoundingClientRect();
+    const padding = 20; // 20px padding to make it easy to drop
+    return (
+      point.x >= rect.left - padding &&
+      point.x <= rect.right + padding &&
+      point.y >= rect.top - padding &&
+      point.y <= rect.bottom + padding
+    );
+  };
+
+  const handleDrag = (_event: any, info: any) => {
+    const isOver = checkIsOverDropZone(info.point);
+    const dropZone = document.getElementById('discard-pile-drop-zone');
+    if (dropZone) {
+      if (isOver) {
+        dropZone.classList.add('drop-zone-active');
+      } else {
+        dropZone.classList.remove('drop-zone-active');
+      }
+    }
+  };
+
+  const handleDragEnd = (_event: any, info: any, cardId: string, index: number) => {
+    setDraggingIndex(null);
+    const dropZone = document.getElementById('discard-pile-drop-zone');
+    if (dropZone) {
+      dropZone.classList.remove('drop-zone-active');
+    }
+
+    const isOver = checkIsOverDropZone(info.point);
+    if (isOver) {
+      if (validatePlayableClient(cardId)) {
+        const face = getActiveCardFaceFrontend(cardId, side, gameMode);
+        if (face.startsWith('WILD')) {
+          if (onPlayWild) {
+            onPlayWild(cardId, cardKeys[index]);
+          }
+        } else {
+          if (onCardPlay) {
+            onCardPlay(cardKeys[index]);
+          }
+          socket.emit('play_card', { roomId, cardId });
+        }
+        setSelectedCardIndex(null);
+      }
+    }
   };
 
   const sortedHand = useMemo(() => {
@@ -296,19 +607,19 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
 
   const count = sortedHand.length;
   const isMobile = dimensions.width < 640;
-  
+
   const targetH = isMobile ? 130 : 220;
   const targetW = targetH * 0.69; // 0.69 aspect ratio
 
-  const spacing = isMobile 
-    ? Math.max(25, 45 - count) 
+  const spacing = isMobile
+    ? Math.max(25, 45 - count)
     : Math.max(42, 80 - count);
 
   const cx = dimensions.width / 2;
   const startX = cx - ((count - 1) * spacing) / 2;
 
-  const baseY = isMobile 
-    ? dimensions.height - 5 - targetH / 2 
+  const baseY = isMobile
+    ? dimensions.height - 5 - targetH / 2
     : dimensions.height - 10 - targetH / 2;
 
   const middle = (count - 1) / 2;
@@ -336,23 +647,29 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
 
           const isSelected = i === selectedCardIndex;
           const isHovered = i === hoveredIndex;
+          const isDragging = i === draggingIndex;
 
           let targetY = tYBase;
           let targetScale = 1.0;
           let zIndex = isSelected ? 200 + i : i;
 
-          if (isSelected) {
+          if (isDragging) {
+            targetScale = 1.12;
+            zIndex = 1000;
+          } else if (isSelected) {
             targetY = tYBase - 35;
           } else if (isHovered) {
             targetY = tYBase - 15;
             targetScale = 1.08;
           }
 
-          const targetRot = offset * 2.0; // rotation in degrees
+          const targetRot = isDragging ? 0 : offset * 2.0;
 
-          // Drop shadow based on select/hover state
+          // Drop shadow based on select/hover/drag state
           let shadowStyle = "drop-shadow(3.54px 3.54px 4px rgba(0,0,0,0.2))";
-          if (isSelected) {
+          if (isDragging) {
+            shadowStyle = "drop-shadow(12px 18px 10px rgba(0,0,0,0.3))";
+          } else if (isSelected) {
             shadowStyle = "drop-shadow(3.5px 3.5px 3px rgba(0,0,0,0.2))";
           } else if (isHovered) {
             shadowStyle = "drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))";
@@ -363,6 +680,7 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
           return (
             <motion.div
               key={key}
+              layoutId={key}
               style={{
                 position: 'absolute',
                 left: 0,
@@ -371,7 +689,7 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
                 height: `${targetH}px`,
                 transformOrigin: 'center center',
                 zIndex: zIndex,
-                cursor: 'pointer',
+                cursor: isDragging ? 'grabbing' : 'pointer',
                 touchAction: 'none',
                 filter: shadowStyle,
               }}
@@ -404,6 +722,13 @@ function HandCanvas({ hand, side, gameMode, roomId, socket }: HandCanvasProps) {
                 setHoveredIndex((prev) => (prev === i ? null : prev));
               }}
               onClick={() => handleCardTap(cardId, i)}
+              drag
+              dragElastic={1.0}
+              dragMomentum={false}
+              dragSnapToOrigin={true}
+              onDragStart={() => setDraggingIndex(i)}
+              onDrag={handleDrag}
+              onDragEnd={(e, info) => handleDragEnd(e, info, cardId, i)}
             >
               <img
                 src={assetUrl}
@@ -486,6 +811,8 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [lastPlayedCardKey, setLastPlayedCardKey] = useState<string | null>(null);
+  const [pendingWildCard, setPendingWildCard] = useState<{ cardId: string; key: string } | null>(null);
 
   const handleHostGame = () => {
     if (!playerName.trim()) {
@@ -1464,7 +1791,8 @@ function App() {
     const hand = Array.isArray(player?.hand) ? player.hand : [];
 
     return (
-      <div className="h-screen w-screen bg-white relative overflow-hidden font-sans select-none flex flex-col items-center justify-end pb-16">
+      <LayoutGroup>
+        <div className="h-screen w-screen bg-white relative overflow-hidden font-sans select-none flex flex-col items-center justify-end pb-16">
         
         {/* Settings button in the top-right */}
         <div className="absolute top-6 right-6 z-50">
@@ -1547,6 +1875,50 @@ function App() {
           </AnimatePresence>
         </div>
 
+        {/* Center Board (Draw Pile and Discard Pile) */}
+        <div className="absolute top-[35%] sm:top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center gap-6 sm:gap-16 pointer-events-auto z-10">
+          {/* Draw Pile (Clickable to draw a card) */}
+          <div
+            onClick={() => socket.emit('draw_card', { roomId: room.roomId })}
+            className="relative cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 w-[90px] h-[130px] sm:w-[152px] sm:h-[220px]"
+            title="Draw Card"
+          >
+            <div
+              className="absolute inset-0 bg-neutral-border rounded-[7px] sm:rounded-[12px] border-3 border-[#0f172a]"
+              style={{
+                transform: 'translate(4px, 4px)',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+              }}
+            />
+            <div
+              className="absolute inset-0 bg-neutral-border rounded-[7px] sm:rounded-[12px] border-3 border-[#0f172a]"
+              style={{
+                transform: 'translate(2px, 2px)',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+              }}
+            />
+            <div
+              className="absolute inset-0 bg-[#0f172a] rounded-[7px] sm:rounded-[12px] overflow-hidden border-3 border-[#0f172a] flex items-center justify-center shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
+            >
+              <img
+                src="/cards/Deck.png"
+                alt="Draw Deck"
+                className="w-full h-full object-contain pointer-events-none"
+                style={{ imageRendering: 'pixelated' }}
+              />
+            </div>
+          </div>
+
+          {/* Discard Pile Stack */}
+          <DiscardPile
+            room={room}
+            side={room.side}
+            gameMode={room.gameMode}
+            lastPlayedCardKey={lastPlayedCardKey}
+            onResetPlayedKey={() => setLastPlayedCardKey(null)}
+          />
+        </div>
+
         {/* Fanned Player Cards View in React (Facing the player) */}
         <HandCanvas
           hand={hand}
@@ -1554,9 +1926,73 @@ function App() {
           gameMode={room.gameMode}
           roomId={room.roomId}
           socket={socket}
+          onCardPlay={setLastPlayedCardKey}
+          room={room}
+          myPlayerId={myPlayerId}
+          onPlayWild={(cardId, cardKey) => setPendingWildCard({ cardId, key: cardKey })}
         />
 
+        {/* Wild Color Selection Modal */}
+        <AnimatePresence>
+          {pendingWildCard && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full"
+              >
+                <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-5 select-none">
+                  Choose a Color
+                </h3>
+                <div className="grid grid-cols-2 gap-4 w-full">
+                  {(() => {
+                    const isDarkSide = room.gameMode === 'flip' && room.side === 'dark';
+                    const colors = isDarkSide
+                      ? [
+                          { name: 'PINK', hex: '#ec4899', hover: '#db2777', text: 'white' },
+                          { name: 'TEAL', hex: '#14b8a6', hover: '#0d9488', text: 'white' },
+                          { name: 'ORANGE', hex: '#f97316', hover: '#ea580c', text: 'white' },
+                          { name: 'PURPLE', hex: '#8b5cf6', hover: '#7c3aed', text: 'white' }
+                        ]
+                      : [
+                          { name: 'RED', hex: '#cc3333', hover: '#b32424', text: 'white' },
+                          { name: 'BLUE', hex: '#0956bf', hover: '#0748a1', text: 'white' },
+                          { name: 'GREEN', hex: '#379711', hover: '#2c7a0d', text: 'white' },
+                          { name: 'YELLOW', hex: '#ecd407', hover: '#d8c206', text: '#0f172a' }
+                        ];
+                    return colors.map((c) => (
+                      <button
+                        key={c.name}
+                        onClick={() => {
+                          const cardId = pendingWildCard.cardId;
+                          const key = pendingWildCard.key;
+                          setLastPlayedCardKey(key);
+                          socket.emit('play_card', { roomId: room.roomId, cardId, chosenColor: c.name });
+                          setPendingWildCard(null);
+                        }}
+                        style={{ backgroundColor: c.hex }}
+                        className="py-4 border-2 border-[#0f172a] rounded-[14px] shadow-[3px_3px_0_#0f172a] hover:scale-105 active:scale-95 transition-all cursor-pointer font-black text-xs uppercase tracking-wider"
+                        type="button"
+                      >
+                        <span style={{ color: c.text }}>{c.name}</span>
+                      </button>
+                    ));
+                  })()}
+                </div>
+                <button
+                  onClick={() => setPendingWildCard(null)}
+                  className="mt-6 px-4 py-2 border-2 border-[#0f172a] rounded-lg bg-neutral-bg hover:bg-neutral-border text-[#0f172a] font-bold text-xs uppercase cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
       </div>
+    </LayoutGroup>
     );
   }
 
