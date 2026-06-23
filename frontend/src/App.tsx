@@ -345,7 +345,8 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
     }
 
     const updateTimer = () => {
-      const elapsed = Math.floor((Date.now() - turnStartedAt) / 1000);
+      const synchronizedNow = Date.now() + serverTimeOffset;
+      const elapsed = Math.floor((synchronizedNow - turnStartedAt) / 1000);
       const remaining = Math.max(0, TURN_DURATION - elapsed);
       setTimeLeft(remaining);
     };
@@ -1608,6 +1609,8 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
   );
 }
 
+let serverTimeOffset = 0;
+
 function App() {
   const { height } = useWindowSize();
   const isShort = height < 680;
@@ -1664,6 +1667,13 @@ function App() {
   });
   const [room, setRoom] = useState<any>(null);
   const roomRef = useRef(room);
+
+  const updateRoomState = (newRoom: any) => {
+    if (newRoom && newRoom.serverTime) {
+      serverTimeOffset = newRoom.serverTime - Date.now();
+    }
+    setRoom(newRoom);
+  };
   useEffect(() => {
     roomRef.current = room;
   }, [room]);
@@ -2001,7 +2011,7 @@ function App() {
       } catch (e) {
         console.warn('Failed to save reconnect token to localStorage:', e);
       }
-      setRoom(data.room);
+      updateRoomState(data.room);
       // For CPU games the server immediately fires game_started, skip the lobby
       if (!isCpuGameRef.current) {
         setView('lobby');
@@ -2020,13 +2030,13 @@ function App() {
       } catch (e) {
         console.warn('Failed to save reconnect token to localStorage:', e);
       }
-      setRoom(data.room);
+      updateRoomState(data.room);
       setView('lobby');
     });
 
     socket.on('room_updated', (updatedRoom) => {
       console.log('Socket room_updated received. Payload:', updatedRoom);
-      setRoom(updatedRoom);
+      updateRoomState(updatedRoom);
       if (updatedRoom && updatedRoom.gameMode) {
         setGameMode(updatedRoom.gameMode);
       }
@@ -2037,6 +2047,9 @@ function App() {
 
     socket.on('game_state_updated', (updatedRoom) => {
       console.log('Socket game_state_updated received. Payload:', updatedRoom);
+      if (updatedRoom && updatedRoom.serverTime) {
+        serverTimeOffset = updatedRoom.serverTime - Date.now();
+      }
       setRoom((prevRoom: any) => {
         if (prevRoom && updatedRoom) {
           const prevDiscardSize = prevRoom.discardPileSize || 0;
@@ -2130,7 +2143,7 @@ function App() {
       if (data && data.player) {
         setMyPlayerId(data.player.id);
       }
-      setRoom(data.room);
+      updateRoomState(data.room);
       setView(data.room?.gameStarted ? 'game' : 'lobby');
     });
 

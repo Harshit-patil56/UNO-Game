@@ -30,6 +30,7 @@ export function redactGameState(gameState, recipientPlayerId) {
     deckSize: gameState.deck.length,
     discardPileTop: gameState.discardPile[gameState.discardPile.length - 1] || null,
     discardPileSize: gameState.discardPile.length,
+    serverTime: Date.now(),
     players: gameState.players.map(p => ({
       id: p.id,
       name: p.name,
