@@ -6,6 +6,7 @@ import { adventurer } from '@dicebear/collection';
 import { io } from 'socket.io-client';
 import { BACKEND_URL } from './config';
 import * as PIXI from 'pixi.js';
+import { DropShadowFilter } from 'pixi-filters';
 
 
 const socket = io(BACKEND_URL, {
@@ -156,10 +157,21 @@ function PixiHandCanvas({ hand, side, gameMode, roomId, socket }: PixiHandCanvas
   const appRef = useRef<PIXI.Application | null>(null);
   const cardsContainerRef = useRef<PIXI.Container | null>(null);
   const destroyedRef = useRef(false);
-  
+  const updatingRef = useRef(false); // prevent concurrent async updates
+
+  // Always-current refs for values used inside effects / async callbacks
+  const handRef = useRef<string[]>(hand);
+  const sideRef = useRef<'light' | 'dark'>(side);
+  const gameModeRef = useRef<'classic' | 'flip'>(gameMode);
+
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(null);
   const selectedCardIndexRef = useRef<number | null>(null);
   const [errorText, setErrorText] = useState<string>('');
+
+  // Keep refs in sync with latest props every render
+  handRef.current = hand;
+  sideRef.current = side;
+  gameModeRef.current = gameMode;
 
   useEffect(() => {
     selectedCardIndexRef.current = selectedCardIndex;
@@ -168,7 +180,6 @@ function PixiHandCanvas({ hand, side, gameMode, roomId, socket }: PixiHandCanvas
   const handleCardTap = (cardId: string, index: number) => {
     setSelectedCardIndex(prev => {
       if (prev === index) {
-        console.log('Play card confirmed in Pixi:', cardId, 'at index:', index);
         socket.emit('play_card', { roomId, cardId });
         return null;
       } else {
@@ -177,28 +188,163 @@ function PixiHandCanvas({ hand, side, gameMode, roomId, socket }: PixiHandCanvas
     });
   };
 
+  // Core async function - reads from refs so it always uses current values
+  const runUpdateCards = async () => {
+    if (!appRef.current || !cardsContainerRef.current) return;
+    if (updatingRef.current) return; // skip if already running
+    updatingRef.current = true;
+
+    const app = appRef.current;
+    const cardsContainer = cardsContainerRef.current;
+    const currentHand = handRef.current;
+    const currentSide = sideRef.current;
+    const currentGameMode = gameModeRef.current;
+
+    if (!Array.isArray(currentHand)) {
+      updatingRef.current = false;
+      return;
+    }
+
+    try {
+      // Pre-load all textures before touching any sprite state
+      const loadedTextures = await Promise.all(
+        currentHand.map(async (cardId) => {
+          const assetUrl = getCardAssetUrl(cardId, currentSide, currentGameMode);
+          try {
+            const tex = await PIXI.Assets.load(assetUrl);
+            if (tex.source) {
+              tex.source.scaleMode = 'nearest';
+              tex.source.update();
+            }
+            return { cardId, texture: tex };
+          } catch {
+            const fallback = await PIXI.Assets.load('/cards/Deck.png').catch(() => PIXI.Texture.EMPTY);
+            if (fallback.source) {
+              fallback.source.scaleMode = 'nearest';
+              fallback.source.update();
+            }
+            return { cardId, texture: fallback };
+          }
+        })
+      );
+
+      // After async work, check if app is still alive and hand hasn't changed
+      if (!appRef.current || !cardsContainerRef.current) {
+        updatingRef.current = false;
+        return;
+      }
+      // If hand changed while we were loading, abort this stale update
+      if (handRef.current !== currentHand) {
+        updatingRef.current = false;
+        return;
+      }
+
+      const width = app.screen.width || 800;
+      const height = app.screen.height || 220;
+      const centerX = width / 2;
+      const centerY = height - 15;
+      const isMobile = width < 640;
+
+      // Snapshot existing sprites keyed by cardId for reconciliation
+      const prevSprites = new Map<string, any>();
+      const usedKeys = new Map<string, number>(); // for duplicate card IDs
+      for (const child of cardsContainer.children as any[]) {
+        const key = child.cardId;
+        const count = usedKeys.get(key) || 0;
+        const uniqueKey = `${key}__${count}`;
+        prevSprites.set(uniqueKey, child);
+        usedKeys.set(key, count + 1);
+      }
+
+      cardsContainer.removeChildren();
+
+      const newUsedKeys = new Map<string, number>();
+
+      loadedTextures.forEach(({ cardId, texture }, i) => {
+        const sprite = new PIXI.Sprite(texture) as any;
+        sprite.anchor.set(0.5, 0.5);
+        sprite.cardId = cardId;
+        sprite.spriteIndex = i; // stable hand index used by ticker for fan math
+        sprite.zIndex = i;
+        sprite.isHovered = false;
+
+        // Apply realistic drop shadow filter
+        const shadowFilter = new DropShadowFilter({
+          blur: 4,
+          offset: { x: 3.54, y: 3.54 },
+          alpha: 0.35
+        });
+        sprite.filters = [shadowFilter];
+        sprite.shadowFilter = shadowFilter;
+
+        // Compute natural scale from texture aspect ratio at target height
+        const aspect = texture.width > 0 ? texture.width / texture.height : 0.69;
+        const tH = isMobile ? 105 : 160;
+        const tW = tH * aspect;
+        const naturalScaleX = tW / texture.width;
+        const naturalScaleY = tH / texture.height;
+
+        // Match previous sprite by unique key (handles duplicate card IDs correctly)
+        const count = newUsedKeys.get(cardId) || 0;
+        const uniqueKey = `${cardId}__${count}`;
+        newUsedKeys.set(cardId, count + 1);
+
+        const prev = prevSprites.get(uniqueKey);
+        if (prev) {
+          // Preserve current position so the sprite continues smoothly from where it was
+          sprite.x = prev.x;
+          sprite.y = prev.y;
+          sprite.rotation = prev.rotation;
+          sprite.scale.x = prev.scale.x;
+          sprite.scale.y = prev.scale.y;
+        } else {
+          // New card: start from center bottom so it slides up into position
+          sprite.x = centerX;
+          sprite.y = centerY + 200;
+          sprite.rotation = 0;
+          sprite.scale.x = naturalScaleX;
+          sprite.scale.y = naturalScaleY;
+        }
+
+        sprite.eventMode = 'static';
+        sprite.cursor = 'pointer';
+
+        sprite.on('pointerover', () => { sprite.isHovered = true; });
+        sprite.on('pointerout', () => { sprite.isHovered = false; });
+        sprite.on('pointertap', () => { handleCardTap(cardId, i); });
+
+        cardsContainer.addChild(sprite);
+      });
+
+      cardsContainer.sortChildren();
+    } catch (e: any) {
+      setErrorText('Update error: ' + e.message);
+    } finally {
+      updatingRef.current = false;
+    }
+  };
+
+  // Mount: init PixiJS application once
   useEffect(() => {
     let mounted = true;
     destroyedRef.current = false;
 
     const initPixi = async () => {
-      if (!containerRef.current) return;
-      if (appRef.current) return;
+      if (!containerRef.current || appRef.current) return;
 
       try {
         const app = new PIXI.Application();
-        const width = containerRef.current.clientWidth || 800;
-        const height = containerRef.current.clientHeight || 220;
+        const w = containerRef.current.clientWidth || 800;
+        const h = containerRef.current.clientHeight || 220;
 
         await app.init({
-          width,
-          height,
+          width: w,
+          height: h,
           backgroundAlpha: 0,
           antialias: true,
           resizeTo: containerRef.current,
           resolution: window.devicePixelRatio || 1,
-          autoDensity: true,
-          roundPixels: true
+          autoDensity: true
         });
 
         if (!mounted) {
@@ -206,17 +352,15 @@ function PixiHandCanvas({ hand, side, gameMode, roomId, socket }: PixiHandCanvas
           return;
         }
 
+        // Set global scaleMode to nearest for pixel-perfect card textures
+        PIXI.TextureStyle.defaultOptions.scaleMode = 'nearest';
+
         appRef.current = app;
-        
-        const container = containerRef.current;
+
+        const container = containerRef.current!;
         container.innerHTML = '';
-        
-        app.canvas.style.position = 'absolute';
-        app.canvas.style.top = '0';
-        app.canvas.style.left = '0';
-        app.canvas.style.width = '100%';
-        app.canvas.style.height = '100%';
-        app.canvas.style.display = 'block';
+        // Do NOT apply CSS width/height - let Pixi handle canvas sizing via autoDensity
+        app.canvas.style.cssText = 'position:absolute;top:0;left:0;display:block;';
         container.appendChild(app.canvas);
 
         const cardsContainer = new PIXI.Container();
@@ -224,75 +368,100 @@ function PixiHandCanvas({ hand, side, gameMode, roomId, socket }: PixiHandCanvas
         cardsContainerRef.current = cardsContainer;
         app.stage.addChild(cardsContainer);
 
+        // Ticker: lerp each sprite toward its target each frame
         app.ticker.add(() => {
-          try {
-            if (!appRef.current) return;
-            const width = appRef.current.screen.width;
-            const height = appRef.current.screen.height;
-            const isMobile = width < 640;
-            
-            const baseWidth = isMobile ? 72 : 110;
-            const baseHeight = isMobile ? 105 : 160;
-            
-            const centerX = width / 2;
-            const baseY = height - 15;
-            
-            const count = cardsContainer.children.length;
-            const center = (count - 1) / 2;
-            
-            const spread = 18;
-            const overlap = 42;
+          if (!appRef.current) return;
+          const sw = appRef.current.screen.width;
+          const sh = appRef.current.screen.height;
+          const mob = sw < 640;
+          // Target height for cards - width is derived from texture aspect ratio
+          const targetH = mob ? 105 : 160;
+          const cx = sw / 2;
+          const count = cardsContainer.children.length;
+          
+          // 1. Spacing: reduce overlap dynamically for many cards
+          const spacing = Math.max(28, 52 - count);
+          const startX = cx - ((count - 1) * spacing) / 2;
+          
+          // Place baseY such that center-anchored cards sit nicely in the canvas
+          const baseY = sh - (mob ? 65 : 95);
+          const middle = (count - 1) / 2;
 
-            cardsContainer.children.forEach((child: any, index: number) => {
-              const offset = index - center;
-              const targetX = centerX + offset * overlap;
-              const targetYBase = baseY + Math.abs(offset) * 6;
+          let needsSort = false;
 
-              let targetYFinal = targetYBase;
-              let targetRotation = (offset * spread) * (Math.PI / 180);
-              let targetScale = 1.0;
+          // Use spriteIndex (stable, set during updateCards) rather than forEach index
+          // so zIndex changes from hover don't corrupt position math
+          for (let i = 0; i < count; i++) {
+            const child = cardsContainer.children[i] as any;
+            const idx = child.spriteIndex; // stable position in hand, unaffected by sort
+            const offset = idx - middle;
+            
+            // 2. Position cards horizontally
+            const tX = startX + idx * spacing;
+            
+            // 3. Keep Y nearly flat with tiny curve
+            const tYBase = baseY + Math.abs(offset) * 4;
+            let tY = tYBase;
+            
+            // 4. Small angle only
+            let tRot = offset * 0.045;
+            let tScale = 1.0;
 
-              const isSelected = index === selectedCardIndexRef.current;
-              const isHovered = child.isHovered;
+            const isSel = idx === selectedCardIndexRef.current;
+            const isHov = child.isHovered;
 
-              if (isSelected) {
-                targetYFinal = targetYBase - 28;
-                child.targetZIndex = 200 + index;
-              } else if (isHovered) {
-                targetYFinal = targetYBase - 20;
-                targetScale = 1.05;
-                child.targetZIndex = 100 + index;
-              } else {
-                child.targetZIndex = index;
+            let targetZ = idx;
+            const shadowFilter = child.shadowFilter;
+
+            if (isSel) {
+              tY = tYBase - 35; // Lift selected card higher
+              targetZ = 200 + idx;
+              if (shadowFilter) {
+                shadowFilter.offsetX = 5.66;
+                shadowFilter.offsetY = 5.66;
+                shadowFilter.blur = 6;
               }
-
-              child.targetX = targetX;
-              child.targetY = targetYFinal;
-              child.targetRotation = targetRotation;
-              child.targetWidth = baseWidth * targetScale;
-              child.targetHeight = baseHeight * targetScale;
-
-              if (child.targetX !== undefined) {
-                const lerpFactor = 0.08;
-                child.x += (child.targetX - child.x) * lerpFactor;
-                child.y += (child.targetY - child.y) * lerpFactor;
-                child.rotation += (child.targetRotation - child.rotation) * lerpFactor;
-                child.width += (child.targetWidth - child.width) * lerpFactor;
-                child.height += (child.targetHeight - child.height) * lerpFactor;
-                
-                if (child.zIndex !== child.targetZIndex) {
-                  child.zIndex = child.targetZIndex;
-                  cardsContainer.sortChildren();
-                }
+            } else if (isHov) {
+              tY = tYBase - 15; // Hover moves upward by 15px if not selected
+              tScale = 1.08;
+              targetZ = idx;
+              if (shadowFilter) {
+                shadowFilter.offsetX = 3.54;
+                shadowFilter.offsetY = 3.54;
+                shadowFilter.blur = 4;
               }
-            });
-          } catch (e: any) {
-            setErrorText('Ticker error: ' + e.message);
+            } else {
+              if (shadowFilter) {
+                shadowFilter.offsetX = 3.54;
+                shadowFilter.offsetY = 3.54;
+                shadowFilter.blur = 4;
+              }
+            }
+
+            if (child.zIndex !== targetZ) {
+              child.zIndex = targetZ;
+              needsSort = true;
+            }
+
+            const lf = 0.08;
+            child.x += (tX - child.x) * lf;
+            child.y += (tY - child.y) * lf;
+            child.rotation += (tRot - child.rotation) * lf;
+
+            // Scale uniformly from texture aspect ratio - preserves sharpness
+            const aspect = child.texture.width > 0 ? child.texture.width / child.texture.height : 0.69;
+            const tH = targetH * tScale;
+            const tW = tH * aspect;
+            child.scale.x += (tW / child.texture.width - child.scale.x) * lf;
+            child.scale.y += (tH / child.texture.height - child.scale.y) * lf;
           }
+
+          // Only sort when something actually changed zIndex
+          if (needsSort) cardsContainer.sortChildren();
         });
 
-        // Trigger initial update
-        await updateCards();
+        // Initial card load — reads from refs so it gets the latest hand
+        await runUpdateCards();
       } catch (e: any) {
         console.error('Pixi init failed:', e);
         setErrorText('Init error: ' + e.message);
@@ -305,117 +474,27 @@ function PixiHandCanvas({ hand, side, gameMode, roomId, socket }: PixiHandCanvas
       mounted = false;
       if (!destroyedRef.current && appRef.current?.renderer) {
         destroyedRef.current = true;
-        appRef.current.destroy(true, {
-          children: true,
-          texture: false,
-          textureSource: false
-        });
+        appRef.current.destroy(true, { children: true, texture: false, textureSource: false });
       }
       appRef.current = null;
       cardsContainerRef.current = null;
     };
   }, []);
 
-  const updateCards = async () => {
-    if (!appRef.current || !cardsContainerRef.current) return;
-    if (!Array.isArray(hand)) return;
-    const app = appRef.current;
-    const cardsContainer = cardsContainerRef.current;
-
-    try {
-      const loadedTextures = await Promise.all(
-        hand.map(async (cardId) => {
-          const assetUrl = getCardAssetUrl(cardId, side, gameMode);
-          try {
-            const tex = await PIXI.Assets.load(assetUrl);
-            if (tex.source?.style) {
-              tex.source.style.scaleMode = 'linear';
-              tex.source.style.addressMode = 'clamp-to-edge';
-            }
-            return { cardId, texture: tex };
-          } catch (err) {
-            console.error('Failed to load card asset:', assetUrl, err);
-            const fallbackTex = await PIXI.Assets.load('/cards/Deck.png');
-            if (fallbackTex.source?.style) {
-              fallbackTex.source.style.scaleMode = 'linear';
-              fallbackTex.source.style.addressMode = 'clamp-to-edge';
-            }
-            return { cardId, texture: fallbackTex };
-          }
-        })
-      );
-
-      const existingChildren = [...cardsContainer.children] as any[];
-      cardsContainer.removeChildren();
-
-      const width = app.screen.width || 800;
-      const height = app.screen.height || 180;
-      const centerX = width / 2;
-      const centerY = height - 15;
-      const isMobile = width < 640;
-      const baseWidth = isMobile ? 72 : 110;
-      const baseHeight = isMobile ? 105 : 160;
-
-      const unmatchedChildren = [...existingChildren];
-
-      loadedTextures.forEach(({ cardId, texture }, i) => {
-        const sprite = new PIXI.Sprite(texture) as any;
-        sprite.anchor.set(0.5, 1);
-        sprite.cardId = cardId;
-        sprite.targetZIndex = i;
-        sprite.isHovered = false;
-
-        // Find matching child based on card ID to preserve identity and avoid sliding jumps
-        const matchIndex = unmatchedChildren.findIndex((child: any) => child.cardId === cardId);
-        let matchingChild: any = null;
-        if (matchIndex !== -1) {
-          matchingChild = unmatchedChildren[matchIndex];
-          unmatchedChildren.splice(matchIndex, 1);
-        }
-
-        if (matchingChild) {
-          sprite.x = matchingChild.x;
-          sprite.y = matchingChild.y;
-          sprite.rotation = matchingChild.rotation;
-          sprite.width = matchingChild.width;
-          sprite.height = matchingChild.height;
-          sprite.isHovered = matchingChild.isHovered;
-        } else {
-          sprite.x = centerX;
-          sprite.y = centerY + 150;
-          sprite.rotation = 0;
-          sprite.width = baseWidth;
-          sprite.height = baseHeight;
-        }
-
-        sprite.eventMode = 'static';
-        sprite.cursor = 'pointer';
-
-        sprite.on('pointerover', () => {
-          sprite.isHovered = true;
-        });
-
-        sprite.on('pointerout', () => {
-          sprite.isHovered = false;
-        });
-
-        sprite.on('pointertap', () => {
-          handleCardTap(cardId, i);
-        });
-
-        cardsContainer.addChild(sprite);
-      });
-
-      cardsContainer.sortChildren();
-    } catch (e: any) {
-      setErrorText('Update error: ' + e.message);
-    }
-  };
-
+  // Update cards when hand / side / gameMode changes
   useEffect(() => {
-    updateCards();
-    setSelectedCardIndex(null);
+    // Small debounce so rapid successive updates don't pile up
+    const timer = setTimeout(() => {
+      runUpdateCards();
+      setSelectedCardIndex(null);
+    }, 50);
+    return () => clearTimeout(timer);
   }, [hand, side, gameMode]);
+
+
+
+
+
 
   if (!Array.isArray(hand)) {
     return (
