@@ -276,49 +276,80 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false }: GameP
 interface OpponentCardFanProps {
   cardCount: number;
   direction: 'left' | 'right' | 'down';
+  side: 'light' | 'dark';
+  gameMode: 'classic' | 'flip';
 }
 
-function OpponentCardFan({ cardCount, direction }: OpponentCardFanProps) {
-  const visibleCards = Math.min(cardCount, 4);
-  if (visibleCards <= 0) return null;
+function OpponentCardFan({ cardCount, direction: _direction, side, gameMode }: OpponentCardFanProps) {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  if (cardCount <= 0) return null;
+
+  // Symmetrical fan: show up to 15 cards
+  const visibleCards = Math.min(cardCount, 15);
+  const middle = (visibleCards - 1) / 2;
+
+  const isDarkSide = gameMode === 'flip' && side === 'dark';
+  const cardBackFilter = isDarkSide 
+    ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)' 
+    : 'none';
+
+  const cardW = isMobile ? 44 : 72;
+  const cardH = isMobile ? 64 : 104;
+  const maxFanWidth = isMobile ? 120 : 200;
+  const bottomOffset = isMobile ? 14 : 22;
+
+  const spacingX = visibleCards > 1 
+    ? Math.min(isMobile ? 14 : 22, maxFanWidth / (visibleCards - 1)) 
+    : 0;
+
+  const curveFactor = isMobile ? 1.0 : 1.8;
+  const rotationFactor = isMobile ? 1.8 : 2.5;
 
   return (
-    <div className={`relative ${direction === 'down' ? 'flex flex-row justify-center h-12 w-24' : 'flex flex-col justify-center w-16 h-12'}`}>
+    <div 
+      className="relative flex items-end justify-center select-none pointer-events-none"
+      style={{
+        width: `${maxFanWidth + cardW}px`,
+        height: `${cardH + bottomOffset + 4}px`,
+        margin: '0 auto',
+      }}
+    >
       {Array.from({ length: visibleCards }).map((_, idx) => {
-        let style: React.CSSProperties = {};
-        const offset = idx - (visibleCards - 1) / 2;
+        const offset = idx - middle;
         
-        if (direction === 'right') {
-          style = {
-            transform: `translateX(${idx * 12}px) rotate(${offset * 8}deg)`,
-            zIndex: idx,
-            position: 'absolute',
-            left: '0px',
-            transformOrigin: 'bottom center'
-          };
-        } else if (direction === 'left') {
-          style = {
-            transform: `translateX(${-idx * 12}px) rotate(${offset * -8}deg)`,
-            zIndex: idx,
-            position: 'absolute',
-            right: '0px',
-            transformOrigin: 'bottom center'
-          };
-        } else {
-          style = {
-            transform: `translateX(${offset * 12}px) translateY(${idx * 3}px) rotate(${offset * 8}deg)`,
-            zIndex: idx,
-            position: 'absolute',
-            left: 'calc(50% - 14px)',
-            transformOrigin: 'top center'
-          };
-        }
+        // Symmetrical curve math:
+        // x offsets cards horizontally
+        const x = offset * spacingX;
+        // y pushes outer cards downwards (positive Y), making middle card highest (dome shape)
+        const y = Math.pow(Math.abs(offset), 1.4) * curveFactor;
+        // rotate tilts outer cards outwards
+        const rotate = offset * rotationFactor;
+
+        const style: React.CSSProperties = {
+          position: 'absolute',
+          bottom: `${bottomOffset}px`,
+          left: `calc(50% - ${cardW / 2}px)`,
+          width: `${cardW}px`,
+          height: `${cardH}px`,
+          transform: `translateX(${x}px) translateY(${y}px) rotate(${rotate}deg)`,
+          transformOrigin: 'bottom center',
+          zIndex: idx,
+          filter: cardBackFilter,
+          WebkitBoxReflect: 'below 1px linear-gradient(transparent 75%, rgba(255, 255, 255, 0.12))',
+        };
 
         return (
           <div
             key={idx}
             style={style}
-            className="w-7 h-10 sm:w-8 sm:h-12 rounded-[4px] border-2 border-[#0f172a] shadow-[1px_1.5px_0_#0f172a] bg-white overflow-hidden flex-shrink-0 transition-transform duration-300"
+            className="rounded-[6px] border-2 border-[#0f172a] shadow-[1px_2px_4px_rgba(0,0,0,0.18)] bg-white overflow-hidden flex-shrink-0 transition-all duration-300"
           >
             <img 
               src="/cards/Deck.png" 
@@ -328,6 +359,21 @@ function OpponentCardFan({ cardCount, direction }: OpponentCardFanProps) {
           </div>
         );
       })}
+      
+      {cardCount > 15 && (
+        <div 
+          className="absolute bg-brand-red border-2 border-[#0f172a] rounded-full flex items-center justify-center font-black text-white shadow-[2px_2px_0_#0f172a] z-50 animate-pulse"
+          style={{
+            width: isMobile ? '20px' : '28px',
+            height: isMobile ? '20px' : '28px',
+            fontSize: isMobile ? '9px' : '12px',
+            top: '0px',
+            right: '0px',
+          }}
+        >
+          +{cardCount - 15}
+        </div>
+      )}
     </div>
   );
 }
@@ -591,7 +637,12 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
                 src={assetUrl}
                 alt={card.cardId}
                 className="w-full h-full object-contain pointer-events-none select-none"
-                style={{ imageRendering: 'auto' }}
+                style={{ 
+                  imageRendering: 'auto',
+                  filter: card.cardId === 'DECK_BACK' && gameMode === 'flip' && side === 'dark'
+                    ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)'
+                    : 'none'
+                }}
               />
             </motion.div>
           );
@@ -611,6 +662,7 @@ interface HandCanvasProps {
   room: any;
   myPlayerId: string;
   onPlayWild?: (cardId: string, cardKey: string) => void;
+  lastPlayedCardKey: string | null;
 }
 
 function HandCanvas({
@@ -622,7 +674,8 @@ function HandCanvas({
   onCardPlay,
   room,
   myPlayerId,
-  onPlayWild
+  onPlayWild,
+  lastPlayedCardKey
 }: HandCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 1024, height: 300 });
@@ -714,21 +767,21 @@ function HandCanvas({
     setTimeout(() => setShakingIndex(null), 450);
   };
 
-  const playCard = (cardId: string, index: number) => {
+  const playCard = (cardId: string, _index: number, instanceId: string) => {
     const face = getActiveCardFaceFrontend(cardId, side, gameMode);
     if (face === 'WILD' || face === 'WILD_DRAW_FOUR' || face === 'WILD_DRAW_TWO' || face === 'WILD_DRAW_COLOR') {
       if (onPlayWild) {
-        onPlayWild(cardId, cardKeys[index]);
+        onPlayWild(cardId, instanceId);
       }
     } else {
       if (onCardPlay) {
-        onCardPlay(cardKeys[index]);
+        onCardPlay(instanceId);
       }
       socket.emit('play_card', { roomId, cardId });
     }
   };
 
-  const handleCardTap = (cardId: string, index: number) => {
+  const handleCardTap = (cardId: string, index: number, instanceId: string) => {
     if (!validatePlayableClient(cardId)) {
       triggerShake(index);
       return;
@@ -737,7 +790,7 @@ function HandCanvas({
     setSelectedCardIndex(prev => {
       if (prev === index) {
         // Second tap = play the card
-        playCard(cardId, index);
+        playCard(cardId, index, instanceId);
         return null;
       }
       return index;
@@ -766,7 +819,7 @@ function HandCanvas({
     }
   };
 
-  const handleDragEnd = (_event: any, info: any, cardId: string, index: number) => {
+  const handleDragEnd = (_event: any, info: any, cardId: string, index: number, instanceId: string) => {
     setDraggingIndex(null);
     const dropZone = document.getElementById('discard-pile-drop-zone');
     if (dropZone) dropZone.classList.remove('drop-zone-active');
@@ -782,7 +835,7 @@ function HandCanvas({
 
     // Valid drop on pile: play the card
     setSelectedCardIndex(null);
-    playCard(cardId, index);
+    playCard(cardId, index, instanceId);
   };
 
   const sortedHand = useMemo(() => {
@@ -823,13 +876,37 @@ function HandCanvas({
     : dimensions.height - 10 - targetH / 2;
   const middle = (count - 1) / 2;
 
-  // Generate stable unique keys for duplicate cardIds
-  const counts = new Map<string, number>();
-  const cardKeys = sortedHand.map(cardId => {
-    const cc = counts.get(cardId) || 0;
-    counts.set(cardId, cc + 1);
-    return `${cardId}__${cc}`;
-  });
+  // Stable key reconciliation for duplicate cardIds
+  const instancesRef = useRef<Array<{ instanceId: string; cardId: string }>>([]);
+  const reconciledHand = useMemo(() => {
+    const oldInstances = [...instancesRef.current];
+    const newInstances: Array<{ instanceId: string; cardId: string }> = [];
+    const remainingOld = [...oldInstances];
+
+    // Exclude the played instance from being matched in the new hand
+    if (lastPlayedCardKey) {
+      const playedIndex = remainingOld.findIndex(inst => inst.instanceId === lastPlayedCardKey);
+      if (playedIndex !== -1) {
+        remainingOld.splice(playedIndex, 1);
+      }
+    }
+
+    for (const cardId of sortedHand) {
+      const matchIndex = remainingOld.findIndex(inst => inst.cardId === cardId);
+      if (matchIndex !== -1) {
+        newInstances.push(remainingOld[matchIndex]);
+        remainingOld.splice(matchIndex, 1);
+      } else {
+        newInstances.push({
+          instanceId: `${cardId}__inst_${Math.random().toString(36).substr(2, 9)}`,
+          cardId
+        });
+      }
+    }
+
+    instancesRef.current = newInstances;
+    return newInstances;
+  }, [sortedHand, lastPlayedCardKey]);
 
   return (
     <div
@@ -838,8 +915,9 @@ function HandCanvas({
       style={{ touchAction: 'none' }}
     >
       <AnimatePresence>
-        {sortedHand.map((cardId, i) => {
-          const key = cardKeys[i];
+        {reconciledHand.map((inst, i) => {
+          const key = inst.instanceId;
+          const cardId = inst.cardId;
           const offset = i - middle;
           const tX = startX + i * spacing;
           const tYBase = baseY + Math.abs(offset) * 4;
@@ -929,14 +1007,14 @@ function HandCanvas({
               }}
               onMouseEnter={() => setHoveredIndex(i)}
               onMouseLeave={() => setHoveredIndex(prev => prev === i ? null : prev)}
-              onClick={() => handleCardTap(cardId, i)}
+              onClick={() => handleCardTap(cardId, i, key)}
               drag
               dragElastic={1.0}
               dragMomentum={false}
               dragSnapToOrigin={true}
               onDragStart={() => setDraggingIndex(i)}
               onDrag={handleDrag}
-              onDragEnd={(e, info) => handleDragEnd(e, info, cardId, i)}
+              onDragEnd={(e, info) => handleDragEnd(e, info, cardId, i, key)}
             >
               <motion.img
                 src={assetUrl}
@@ -2027,13 +2105,13 @@ function App() {
         {opponents.map((opp, idx) => {
           let positionClass = '';
           let fanDirection: 'left' | 'right' | 'down' = 'down';
-          let layoutClass = 'flex flex-col items-center';
+          let layoutClass = 'flex items-center gap-4';
 
           if (opponents.length === 1) {
             // 1 Opponent: Top Center
             positionClass = 'absolute top-6 left-1/2 -translate-x-1/2 z-30';
             fanDirection = 'down';
-            layoutClass = 'flex flex-col items-center';
+            layoutClass = 'flex items-center gap-4 flex-row-reverse';
           } else if (opponents.length === 2) {
             // 2 Opponents: Left Center, Right Center
             if (idx === 0) {
@@ -2054,7 +2132,7 @@ function App() {
             } else if (idx === 1) {
               positionClass = 'absolute top-6 left-1/2 -translate-x-1/2 z-30';
               fanDirection = 'down';
-              layoutClass = 'flex flex-col items-center';
+              layoutClass = 'flex items-center gap-4 flex-row-reverse';
             } else {
               positionClass = 'absolute right-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
               fanDirection = 'left';
@@ -2071,8 +2149,13 @@ function App() {
                   cardCount={opp.handCardCount || 0}
                   isTurn={room.players[room.currentTurn]?.id === opp.id}
                 />
-                <div className={fanDirection === 'down' ? 'h-10 w-24 relative mt-2 flex justify-center' : 'w-16 h-12 relative flex items-center justify-center'}>
-                  <OpponentCardFan cardCount={opp.handCardCount || 0} direction={fanDirection} />
+                <div className="w-[160px] h-[86px] sm:w-[260px] sm:h-[136px] relative flex items-center justify-center">
+                  <OpponentCardFan 
+                    cardCount={opp.handCardCount || 0} 
+                    direction={fanDirection} 
+                    side={room.side} 
+                    gameMode={room.gameMode} 
+                  />
                 </div>
               </div>
             </div>
@@ -2199,7 +2282,12 @@ function App() {
                 src="/cards/Deck.png"
                 alt="Draw Deck"
                 className="w-full h-full object-contain pointer-events-none"
-                style={{ imageRendering: 'pixelated' }}
+                style={{ 
+                  imageRendering: 'pixelated',
+                  filter: room.gameMode === 'flip' && room.side === 'dark' 
+                    ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)' 
+                    : 'none'
+                }}
               />
             </div>
           </div>
@@ -2225,6 +2313,7 @@ function App() {
           room={room}
           myPlayerId={myPlayerId}
           onPlayWild={(cardId, cardKey) => setPendingWildCard({ cardId, key: cardKey })}
+          lastPlayedCardKey={lastPlayedCardKey}
         />
 
         {/* Wild Color Selection Modal */}
