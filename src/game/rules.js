@@ -1,7 +1,6 @@
 import { normalizeCard } from './normalizer.js';
 import { getActiveCardFace } from './deck.js';
 import { nextTurn, reverseDirection } from './turnManager.js';
-import { drawPenalty } from './engine.js';
 
 /**
  * Checks if a player has any cards matching the specified color.

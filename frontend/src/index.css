@@ -243,9 +243,21 @@
 }
 
 @keyframes brutal-shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-6px); }
-  40%, 80% { transform: translateX(6px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
 }
 
 .animate-brutal-shake {
@@ -277,13 +289,16 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #0f172a; /* Matches main dark theme border color */
+  background-color: #0f172a;
+  /* Matches main dark theme border color */
   border-radius: 4px;
-  border: 2px solid #f8fafc; /* Matches --color-neutral-bg */
+  border: 2px solid #f8fafc;
+  /* Matches --color-neutral-bg */
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #cc3333; /* Matches Mattel Red hover color */
+  background-color: #cc3333;
+  /* Matches Mattel Red hover color */
 }
 
 /* Custom scrollbar for Firefox */
@@ -298,8 +313,10 @@
 }
 
 .no-scrollbar {
-  -ms-overflow-style: none !important;  /* IE and Edge */
-  scrollbar-width: none !important;  /* Firefox */
+  -ms-overflow-style: none !important;
+  /* IE and Edge */
+  scrollbar-width: none !important;
+  /* Firefox */
 }
 
 /* Custom Brutalist Pop Animation for cycling avatars */
@@ -308,9 +325,11 @@
     transform: scale(0.6) rotate(-12deg);
     opacity: 0;
   }
+
   50% {
     transform: scale(1.15) rotate(4deg);
   }
+
   100% {
     transform: scale(1) rotate(0deg);
     opacity: 1;
@@ -334,9 +353,11 @@
     opacity: 0;
     transform: translateY(6px) scale(0.85);
   }
+
   60% {
     transform: translateY(-2px) scale(1.05);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0) scale(1);

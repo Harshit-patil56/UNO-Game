@@ -3,6 +3,7 @@ import fs from 'fs';
 import { redactGameState } from '../game/events.js';
 import { createRoom, joinRoom, leaveRoom, getRoom } from '../rooms/index.js';
 import { createSession, getSession, removeSession } from '../game/reconnect.js';
+import { chooseBotAction } from '../game/botAI.js';
 
 function logToFile(msg) {
   try {
@@ -36,6 +37,12 @@ const disconnectTimers = new Map();
 
 // Map to track active turn timers per room: roomId -> setTimeout reference
 const turnTimers = new Map();
+
+// Map to track active bot turn timers per room: roomId -> setTimeout reference
+const botTurnTimers = new Map();
+
+// Set of roomIds that are CPU/bot game sessions
+const cpuRooms = new Set();
 
 /**
  * Clears the active turn timer for a given room.
@@ -179,6 +186,111 @@ export function broadcastState(io, room) {
 }
 
 /**
+ * Clears the active bot turn timer for a room.
+ * @param {string} roomId
+ */
+function clearBotTurnTimer(roomId) {
+  const t = botTurnTimers.get(roomId);
+  if (t) {
+    clearTimeout(t);
+    botTurnTimers.delete(roomId);
+  }
+}
+
+/**
+ * Schedules a bot action for the current player in a CPU room.
+ * Bots take 800–1500ms to "think" before acting.
+ *
+ * @param {Object} io
+ * @param {string} roomId
+ */
+export function scheduleBotTurn(io, roomId) {
+  if (!cpuRooms.has(roomId)) return;
+  clearBotTurnTimer(roomId);
+
+  const room = getRoom(roomId);
+  if (!room || !room.gameStarted || room.winner) return;
+
+  const activePlayer = room.players[room.currentTurn];
+  if (!activePlayer || !activePlayer.isBot) return;
+
+  const delay = 1500 + Math.floor(Math.random() * 1500); // 1500–3000ms (naturally slower for human-like pacing)
+  logToFile(`Scheduling bot turn for ${activePlayer.name} in room ${roomId} in ${delay}ms`);
+
+  const timer = setTimeout(() => {
+    try {
+      const currentRoom = getRoom(roomId);
+      if (!currentRoom || !currentRoom.gameStarted || currentRoom.winner) return;
+
+      const currentPlayer = currentRoom.players[currentRoom.currentTurn];
+      if (!currentPlayer || currentPlayer.id !== activePlayer.id || !currentPlayer.isBot) return;
+
+      const decision = chooseBotAction(currentRoom, activePlayer.id);
+      logToFile(`Bot ${activePlayer.name} decision: ${JSON.stringify(decision)}`);
+
+      if (decision.action === 'play') {
+        try {
+          playCard(currentRoom, activePlayer.id, decision.cardId, decision.chosenColor);
+          currentRoom.turnStartedAt = Date.now();
+        } catch (err) {
+          logToFile(`Bot play error: ${err.message} — forcing draw`);
+          try {
+            drawCard(currentRoom, activePlayer.id);
+            currentRoom.turnStartedAt = Date.now();
+          } catch (e2) {
+            logToFile(`Bot draw fallback error: ${e2.message}`);
+          }
+        }
+      } else if (decision.action === 'draw') {
+        try {
+          const prevTurn = currentRoom.currentTurn;
+          drawCard(currentRoom, activePlayer.id);
+          currentRoom.turnStartedAt = Date.now();
+          // If turn didn't advance (card was playable), bot should immediately pass or play
+          if (currentRoom.currentTurn === prevTurn && currentRoom.drawnPlayableCard) {
+            // Let it think again — scheduleBotTurn will be called after broadcastState
+          }
+        } catch (err) {
+          logToFile(`Bot draw error: ${err.message}`);
+        }
+      } else if (decision.action === 'pass') {
+        try {
+          passTurn(currentRoom, activePlayer.id);
+          currentRoom.turnStartedAt = Date.now();
+        } catch (err) {
+          logToFile(`Bot pass error: ${err.message}`);
+        }
+      } else if (decision.action === 'accept_challenge') {
+        try {
+          resolveChallenge(currentRoom, activePlayer.id, false);
+          currentRoom.turnStartedAt = Date.now();
+        } catch (err) {
+          logToFile(`Bot challenge error: ${err.message}`);
+        }
+      }
+
+      if (currentRoom.winner) {
+        clearRoomTurnTimer(roomId);
+        clearBotTurnTimer(roomId);
+        io.to(roomId).emit('game_ended', { winnerId: currentRoom.winner });
+        broadcastState(io, currentRoom);
+        return;
+      }
+
+      broadcastState(io, currentRoom);
+      startRoomTurnTimer(io, roomId);
+
+      // Recursively schedule next bot turn if the new active player is also a bot
+      scheduleBotTurn(io, roomId);
+    } catch (err) {
+      logToFile(`[Bot Turn Error]: ${err.message}. Stack: ${err.stack}`);
+    }
+  }, delay);
+
+  botTurnTimers.set(roomId, timer);
+}
+
+/**
  * Registers all game-related socket event handlers.
  * 
  * @param {Object} io - Socket.IO server instance.
@@ -224,6 +336,158 @@ export function registerSocketHandlers(io, socket) {
       sendError(err.message);
     }
   });
+
+  // 1b. Create Bot Room (Play vs Computer)
+  socket.on('create_bot_room', ({ playerName, gameMode, avatarSeed, bots }) => {
+    try {
+      if (!playerName || typeof playerName !== 'string') {
+        return sendError('Player name is required');
+      }
+      if (!Array.isArray(bots) || bots.length < 1) {
+        return sendError('At least one bot is required');
+      }
+
+      // Create the room with the human player as host
+      const playerId = crypto.randomUUID();
+      const room = createRoom(playerName, playerId, gameMode || 'classic', avatarSeed || '');
+
+      // Associate socket info for human
+      room.players[0].socketId = socket.id;
+
+      // Create reconnect session for human
+      const reconnectToken = createSession(sessions, playerId, playerName, room.roomId);
+      room.players[0].reconnectToken = reconnectToken;
+      socketToToken.set(socket.id, reconnectToken);
+
+      socket.join(room.roomId);
+
+      // Add bots to the room
+      for (const bot of bots) {
+        const botId = crypto.randomUUID();
+        room.players.push({
+          id: botId,
+          name: bot.name || 'Bot',
+          avatarSeed: bot.avatarSeed || botId,
+          socketId: null,
+          hand: [],
+          isReady: true,
+          isDisconnected: false,
+          isBot: true
+        });
+        room.unoStates[botId] = false;
+      }
+
+      // Mark this room as a CPU room
+      cpuRooms.add(room.roomId);
+
+      // --- Start the game immediately ---
+      let deck = gameMode === 'flip' ? createFlipDeck() : createDeck();
+      deck = shuffleDeck(deck);
+
+      const playerIds = room.players.map(p => p.id);
+      const dealResult = dealCards(deck, playerIds, 7);
+
+      room.deck = dealResult.remainingDeck;
+      room.players.forEach(p => {
+        p.hand = dealResult.hands[p.id] || [];
+      });
+
+      // Flip top card for discard pile
+      let topCard = room.deck.pop();
+      if (gameMode === 'flip') {
+        let activeFace = getActiveCardFace(topCard, 'light', gameMode);
+        while (activeFace === 'WILD_DRAW_TWO') {
+          room.deck.unshift(topCard);
+          room.deck = shuffleDeck(room.deck);
+          topCard = room.deck.pop();
+          activeFace = getActiveCardFace(topCard, 'light', gameMode);
+        }
+      } else {
+        while (topCard === 'WILD_DRAW_FOUR') {
+          room.deck.unshift(topCard);
+          room.deck = shuffleDeck(room.deck);
+          topCard = room.deck.pop();
+        }
+      }
+      room.discardPile.push(topCard);
+
+      const resolvedTopFace = getActiveCardFace(topCard, 'light', gameMode || 'classic');
+      const normalizedTop = normalizeCard(resolvedTopFace);
+
+      if (normalizedTop.color === 'WILD') {
+        const colors = ['RED', 'BLUE', 'GREEN', 'YELLOW'];
+        room.currentColor = colors[Math.floor(Math.random() * colors.length)];
+      } else {
+        room.currentColor = normalizedTop.color;
+      }
+
+      room.currentTurn = 0;
+      room.direction = 1;
+      room.winner = null;
+      room.pendingDraw = 0;
+      room.gameStarted = true;
+      room.side = 'light';
+
+      room.players.forEach(p => {
+        room.unoStates[p.id] = false;
+      });
+
+      // Apply opening card action effects
+      if (normalizedTop.type === 'SKIP') {
+        room.currentTurn = nextTurn(room.currentTurn, room.direction, room.players.length);
+      } else if (normalizedTop.type === 'SKIP_EVERYONE') {
+        room.currentTurn = nextTurn(room.currentTurn, room.direction, room.players.length);
+      } else if (normalizedTop.type === 'REVERSE') {
+        room.direction = -room.direction;
+        if (room.players.length === 2) {
+          room.currentTurn = nextTurn(room.currentTurn, room.direction, room.players.length);
+        } else {
+          room.currentTurn = room.players.length - 1;
+        }
+      } else if (normalizedTop.type === 'DRAW_TWO') {
+        drawPenalty(room, room.players[0].id, 2);
+        room.currentTurn = nextTurn(room.currentTurn, room.direction, room.players.length);
+      } else if (normalizedTop.type === 'DRAW_ONE') {
+        drawPenalty(room, room.players[0].id, 1);
+        room.currentTurn = nextTurn(room.currentTurn, room.direction, room.players.length);
+      } else if (normalizedTop.type === 'DRAW_FIVE') {
+        drawPenalty(room, room.players[0].id, 5);
+        room.currentTurn = nextTurn(room.currentTurn, room.direction, room.players.length);
+      } else if (normalizedTop.type === 'FLIP') {
+        room.side = 'dark';
+        room.deck.reverse();
+        room.discardPile.reverse();
+        const newTop = room.discardPile[room.discardPile.length - 1];
+        const newFace = getActiveCardFace(newTop, room.side, room.gameMode);
+        const newNorm = normalizeCard(newFace);
+        room.currentColor = newNorm.color === 'WILD' ? 'PINK' : newNorm.color;
+        room.currentTurn = 0;
+      }
+
+      room.turnStartedAt = Date.now();
+
+      // Notify the human player that the game is ready
+      socket.emit('room_created', {
+        roomId: room.roomId,
+        player: room.players[0],
+        reconnectToken,
+        room: redactGameState(room, playerId)
+      });
+
+      // Tell all (real) sockets the game started
+      socket.emit('game_started');
+      broadcastState(io, room);
+      startRoomTurnTimer(io, room.roomId);
+
+      // If the first turn belongs to a bot, schedule it
+      scheduleBotTurn(io, room.roomId);
+
+      console.log(`CPU Room ${room.roomId} created by ${playerName} with ${bots.length} bot(s)`);
+    } catch (err) {
+      sendError(err.message);
+    }
+  });
+
 
   // 2. Join Room
   socket.on('join_room', ({ roomId, playerName, avatarSeed }) => {
@@ -441,7 +705,7 @@ export function registerSocketHandlers(io, socket) {
       // Reset player hands and ready status
       room.players.forEach(p => {
         p.hand = [];
-        p.isReady = p.id === room.hostId; // Host is ready, others need to ready up
+        p.isReady = p.id === room.hostId || p.isBot; // Host and bots are always ready, other human players need to ready up
       });
 
       clearRoomTurnTimer(room.roomId);
@@ -475,6 +739,7 @@ export function registerSocketHandlers(io, socket) {
         console.log(`Game won by ${session.name} in room ${room.roomId}`);
       } else {
         startRoomTurnTimer(io, room.roomId);
+        scheduleBotTurn(io, room.roomId);
       }
     } catch (err) {
       sendError(err.message);
@@ -502,6 +767,7 @@ export function registerSocketHandlers(io, socket) {
         startRoomTurnTimer(io, room.roomId);
       }
       broadcastState(io, room);
+      scheduleBotTurn(io, room.roomId);
     } catch (err) {
       sendError(err.message);
     }
@@ -523,6 +789,7 @@ export function registerSocketHandlers(io, socket) {
       room.turnStartedAt = Date.now();
       broadcastState(io, room);
       startRoomTurnTimer(io, room.roomId);
+      scheduleBotTurn(io, room.roomId);
     } catch (err) {
       sendError(err.message);
     }
@@ -552,6 +819,7 @@ export function registerSocketHandlers(io, socket) {
 
       broadcastState(io, room);
       startRoomTurnTimer(io, room.roomId);
+      scheduleBotTurn(io, room.roomId);
     } catch (err) {
       sendError(err.message);
     }

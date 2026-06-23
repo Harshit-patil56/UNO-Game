@@ -13,7 +13,7 @@ const playGameEndSoundSynth = (isVictory: boolean) => {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
     const ctx = new AudioContextClass();
-    
+
     if (isVictory) {
       // Triumphant rising arpeggio: C4 -> E4 -> G4 -> C5
       const notes = [261.63, 329.63, 392.00, 523.25];
@@ -22,14 +22,14 @@ const playGameEndSoundSynth = (isVictory: boolean) => {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        
+
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.15);
-        
+
         gain.gain.setValueAtTime(0, ctx.currentTime + index * 0.15);
         gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + index * 0.15 + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.15 + 0.4);
-        
+
         osc.start(ctx.currentTime + index * 0.15);
         osc.stop(ctx.currentTime + index * 0.15 + 0.45);
       });
@@ -41,14 +41,14 @@ const playGameEndSoundSynth = (isVictory: boolean) => {
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        
+
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, ctx.currentTime + index * 0.2);
-        
+
         gain.gain.setValueAtTime(0, ctx.currentTime + index * 0.2);
         gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + index * 0.2 + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + index * 0.2 + 0.5);
-        
+
         osc.start(ctx.currentTime + index * 0.2);
         osc.stop(ctx.currentTime + index * 0.2 + 0.6);
       });
@@ -62,13 +62,13 @@ const playGameEndSoundSynth = (isVictory: boolean) => {
 const playSoundEffect = (soundName: 'draw' | 'play' | 'shuffle' | 'win' | 'lose' | 'uno' | 'drag', enabled = true) => {
   if (!enabled) return;
   try {
-    const audio = new Audio(`/sounds/${soundName === 'draw' ? 'card-draw' : 
-                                      soundName === 'play' ? 'card-play' : 
-                                      soundName === 'shuffle' ? 'card-shuffle' : 
-                                      soundName === 'win' ? 'win' : 
-                                      soundName === 'lose' ? 'lose' : 
-                                      soundName === 'uno' ? 'uno-call' : 
-                                      'card-drag'}.mp3`);
+    const audio = new Audio(`/sounds/${soundName === 'draw' ? 'card-draw' :
+      soundName === 'play' ? 'card-play' :
+        soundName === 'shuffle' ? 'card-shuffle' :
+          soundName === 'win' ? 'win' :
+            soundName === 'lose' ? 'lose' :
+              soundName === 'uno' ? 'uno-call' :
+                'card-drag'}.mp3`);
     audio.volume = soundName === 'drag' ? 0.3 : 0.55;
     audio.play().catch(e => console.warn(`Audio play for ${soundName} blocked or failed:`, e));
   } catch (e) {
@@ -99,7 +99,7 @@ const triggerVictoryConfetti = () => {
     return Math.random() * (max - min) + min;
   }
 
-  const interval: any = setInterval(function() {
+  const interval: any = setInterval(function () {
     const timeLeft = animationEnd - Date.now();
 
     if (timeLeft <= 0) {
@@ -136,7 +136,7 @@ const getActiveCardFaceFrontend = (cardId: string, side: 'light' | 'dark' = 'lig
   if (!cardId || !cardId.startsWith('FLIP_CARD_')) return cardId;
   const index = parseInt(cardId.split('_')[2], 10);
   if (isNaN(index) || index < 0) return cardId;
-  
+
   const lightColors = ['RED', 'BLUE', 'GREEN', 'YELLOW'];
   const darkColors = ['ORANGE', 'PINK', 'TEAL', 'PURPLE'];
   const mapping: Array<{ light: string, dark: string }> = [];
@@ -174,7 +174,7 @@ const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameM
   }
 
   const face = getActiveCardFaceFrontend(cardId, side, gameMode);
-  
+
   if (face === 'WILD') {
     return '/cards/Wild.png';
   }
@@ -278,7 +278,7 @@ const normalizeCardClient = (cardId: string): NormalizedCardClient => {
   // Handle colored cards (e.g. BLUE_NUMBER_0, RED_SKIP, RED_REVERSE, YELLOW_DRAW_TWO)
   const parts = cardId.split('_');
   const color = parts[0]; // RED, BLUE, GREEN, YELLOW
-  
+
   if (parts.length === 3 && parts[1] === 'NUMBER') {
     const value = parseInt(parts[2], 10);
     return { color, type: 'NUMBER', value };
@@ -389,9 +389,8 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
         times: [0, 0.35, 0.55, 0.8, 1],
         ease: "easeInOut",
       }}
-      className={`flex flex-col items-center select-none ${
-        !isTurn ? 'avatar-inactive' : 'avatar-active'
-      }`}
+      className={`flex flex-col items-center select-none ${!isTurn ? 'avatar-inactive' : 'avatar-active'
+        }`}
     >
       {/* YOUR TURN pill: only shown for the local player when it's their turn */}
       {isMe && isTurn && (
@@ -404,9 +403,8 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
 
       {/* Name Label Badge — red when active, teal otherwise */}
       <div
-        className={`border-2 border-white rounded-[8px] px-3.5 py-1.5 flex items-center justify-center min-w-[80px] transition-colors duration-300 ${
-          isTurn ? 'bg-[#cc3333]' : 'bg-[#1e7b85]'
-        }`}
+        className={`border-2 border-white rounded-[8px] px-3.5 py-1.5 flex items-center justify-center min-w-[80px] transition-colors duration-300 ${isTurn ? 'bg-[#cc3333]' : 'bg-[#1e7b85]'
+          }`}
       >
         <span className="text-white font-extrabold text-[10px] sm:text-xs tracking-wider truncate max-w-[85px] uppercase">
           {name}
@@ -416,8 +414,10 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
       {/* Avatar Wrapper — sized to match avatar box so SVG inset-0 covers it exactly */}
       <div className="relative mt-2 w-[72px] h-[72px] sm:w-[88px] sm:h-[88px]">
 
-        {/* Avatar image box — always has white border; SVG ring overlays on top when active */}
-        <div className="w-full h-full bg-white border-4 border-white rounded-[16px] overflow-hidden shadow-[0_8px_16px_rgba(0,0,0,0.15)]">
+        <div 
+          className="w-full h-full bg-white border-[5px] sm:border-[6px] border-white overflow-hidden shadow-[0_8px_16px_rgba(0,0,0,0.15)]"
+          style={{ borderRadius: '22.5%' }}
+        >
           {avatarUri && (
             <img src={avatarUri} alt={name} className="w-full h-full object-cover" />
           )}
@@ -479,9 +479,11 @@ interface OpponentCardFanProps {
   direction: 'left' | 'right' | 'down';
   side: 'light' | 'dark';
   gameMode: 'classic' | 'flip';
+  isShort?: boolean;
+  isVeryShort?: boolean;
 }
 
-function OpponentCardFan({ cardCount, direction: _direction, side, gameMode }: OpponentCardFanProps) {
+function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isShort = false, isVeryShort = false }: OpponentCardFanProps) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
 
   useEffect(() => {
@@ -497,17 +499,30 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode }: O
   const middle = (visibleCards - 1) / 2;
 
   const isDarkSide = gameMode === 'flip' && side === 'dark';
-  const cardBackFilter = isDarkSide 
-    ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)' 
+  const cardBackFilter = isDarkSide
+    ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)'
     : 'none';
 
-  const cardW = isMobile ? 44 : 72;
-  const cardH = isMobile ? 64 : 104;
-  const maxFanWidth = isMobile ? 120 : 200;
-  const bottomOffset = isMobile ? 14 : 22;
+  let cardW = isMobile ? 44 : 72;
+  let cardH = isMobile ? 64 : 104;
+  let maxFanWidth = isMobile ? 120 : 200;
+  let bottomOffset = isMobile ? 14 : 22;
 
-  const spacingX = visibleCards > 1 
-    ? Math.min(isMobile ? 14 : 22, maxFanWidth / (visibleCards - 1)) 
+  if (isVeryShort) {
+    cardW = isMobile ? 28 : 44;
+    cardH = isMobile ? 40 : 64;
+    maxFanWidth = isMobile ? 80 : 120;
+    bottomOffset = isMobile ? 8 : 12;
+  } else if (isShort) {
+    cardW = isMobile ? 36 : 56;
+    cardH = isMobile ? 52 : 80;
+    maxFanWidth = isMobile ? 100 : 160;
+    bottomOffset = isMobile ? 10 : 16;
+  }
+
+  const defaultSpacing = isVeryShort ? (isMobile ? 8 : 12) : (isShort ? (isMobile ? 10 : 16) : (isMobile ? 14 : 22));
+  const spacingX = visibleCards > 1
+    ? Math.min(defaultSpacing, maxFanWidth / (visibleCards - 1))
     : 0;
 
   const curveFactor = isMobile ? 1.0 : 1.8;
@@ -516,7 +531,7 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode }: O
   const actualWidth = (visibleCards - 1) * spacingX + cardW;
 
   return (
-    <div 
+    <div
       className="relative flex items-end justify-center select-none pointer-events-none"
       style={{
         width: `${actualWidth}px`,
@@ -526,7 +541,7 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode }: O
     >
       {Array.from({ length: visibleCards }).map((_, idx) => {
         const offset = idx - middle;
-        
+
         // Symmetrical curve math:
         // x offsets cards horizontally
         const x = offset * spacingX;
@@ -554,17 +569,17 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode }: O
             style={style}
             className="rounded-[6px] border-2 border-[#0f172a] shadow-[1px_2px_4px_rgba(0,0,0,0.18)] bg-white overflow-hidden flex-shrink-0 transition-all duration-300"
           >
-            <img 
-              src="/cards/Deck.png" 
-              alt="Card Back" 
-              className="w-full h-full object-contain pointer-events-none select-none" 
+            <img
+              src="/cards/Deck.png"
+              alt="Card Back"
+              className="w-full h-full object-contain pointer-events-none select-none"
             />
           </div>
         );
       })}
-      
+
       {cardCount > 15 && (
-        <div 
+        <div
           className="absolute bg-brand-red border-2 border-[#0f172a] rounded-full flex items-center justify-center font-black text-white shadow-[2px_2px_0_#0f172a] z-50 animate-pulse"
           style={{
             width: isMobile ? '20px' : '28px',
@@ -839,7 +854,7 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
                 src={assetUrl}
                 alt={card.cardId}
                 className="w-full h-full object-contain pointer-events-none select-none"
-                style={{ 
+                style={{
                   imageRendering: 'auto',
                   filter: card.cardId === 'DECK_BACK' && gameMode === 'flip' && side === 'dark'
                     ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)'
@@ -866,6 +881,8 @@ interface HandCanvasProps {
   onPlayWild?: (cardId: string, cardKey: string) => void;
   lastPlayedCardKey: string | null;
   soundEnabled: boolean;
+  isShort?: boolean;
+  isVeryShort?: boolean;
 }
 
 function HandCanvas({
@@ -879,7 +896,9 @@ function HandCanvas({
   myPlayerId,
   onPlayWild,
   lastPlayedCardKey,
-  soundEnabled
+  soundEnabled,
+  isShort = false,
+  isVeryShort = false
 }: HandCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 1024, height: 300 });
@@ -935,7 +954,7 @@ function HandCanvas({
       console.log('[validatePlayableClient] Rejecting because activePlayer is null/undefined at index:', room.currentTurn);
       return false;
     }
-    
+
     console.log('[validatePlayableClient] activePlayer:', activePlayer.name, 'id:', activePlayer.id);
     console.log('[validatePlayableClient] myPlayerId:', myPlayerId);
     if (activePlayer.id !== myPlayerId) {
@@ -1052,12 +1071,21 @@ function HandCanvas({
     });
   }, [hand, side, gameMode]);
 
+  const isMobile = dimensions.width < 640;
+
+  let containerHeight = isMobile ? 180 : 300;
+  if (isVeryShort) {
+    containerHeight = isMobile ? 120 : 160;
+  } else if (isShort) {
+    containerHeight = isMobile ? 150 : 220;
+  }
+
   if (!Array.isArray(hand)) {
     return (
       <div
         ref={containerRef}
-        className="w-full max-w-5xl h-[180px] sm:h-[300px] flex items-center justify-center text-xs text-neutral-muted uppercase font-black"
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: 'none', height: `${containerHeight}px` }}
+        className="w-full max-w-5xl flex items-center justify-center text-xs text-neutral-muted uppercase font-black"
       >
         Loading cards...
       </div>
@@ -1065,17 +1093,34 @@ function HandCanvas({
   }
 
   const count = sortedHand.length;
-  const isMobile = dimensions.width < 640;
 
-  const targetH = isMobile ? 130 : 220;
+  let targetH = isMobile ? 130 : 220;
+  if (isVeryShort) {
+    targetH = isMobile ? 90 : 120;
+  } else if (isShort) {
+    targetH = isMobile ? 110 : 160;
+  }
   const targetW = targetH * 0.69;
 
-  const spacing = isMobile
+  let spacing = isMobile
     ? Math.max(25, 45 - count)
     : Math.max(42, 80 - count);
 
+  const avatarSpace = isVeryShort ? (isMobile ? 60 : 100) : (isShort ? (isMobile ? 80 : 120) : (isMobile ? 100 : 140));
+  const maxHandWidth = dimensions.width - avatarSpace;
+
+  const totalHandWidth = (count - 1) * spacing + targetW;
+  if (totalHandWidth > maxHandWidth && count > 1) {
+    spacing = (maxHandWidth - targetW) / (count - 1);
+    spacing = Math.max(isMobile ? 12 : 20, spacing);
+  }
+
   const cx = dimensions.width / 2;
-  const startX = cx - ((count - 1) * spacing) / 2;
+  let startX = cx - ((count - 1) * spacing) / 2;
+  if (startX < avatarSpace - 10) {
+    startX = avatarSpace - 10;
+  }
+
   const baseY = isMobile
     ? dimensions.height - 5 - targetH / 2
     : dimensions.height - 10 - targetH / 2;
@@ -1116,8 +1161,8 @@ function HandCanvas({
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-5xl h-[180px] sm:h-[300px] relative overflow-visible flex items-center justify-center"
-      style={{ touchAction: 'none' }}
+      className="w-full max-w-5xl relative overflow-visible flex items-center justify-center"
+      style={{ touchAction: 'none', height: `${containerHeight}px` }}
     >
       {reconciledHand.map((inst, i) => {
         const key = inst.instanceId;
@@ -1135,9 +1180,9 @@ function HandCanvas({
         let zIndex = isSelected ? 200 + i : i;
 
         let shadowStyle = 'drop-shadow(3.54px 3.54px 4px rgba(0,0,0,0.2))';
-        if (isDragging)  shadowStyle = 'drop-shadow(12px 18px 10px rgba(0,0,0,0.3))';
+        if (isDragging) shadowStyle = 'drop-shadow(12px 18px 10px rgba(0,0,0,0.3))';
         else if (isSelected) shadowStyle = 'drop-shadow(5px 8px 6px rgba(0,0,0,0.25))';
-        else if (isHovered)  shadowStyle = 'drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))';
+        else if (isHovered) shadowStyle = 'drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))';
 
         const isPlayable = validatePlayableClient(cardId);
 
@@ -1212,8 +1257,360 @@ function HandCanvas({
     </div>
   );
 }
+function useWindowSize() {
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
+    height: typeof window !== 'undefined' ? window.innerHeight : 800,
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return windowSize;
+}
+
+// ─── CPU Lobby View Component ───────────────────────────────────────────────
+interface CpuBot {
+  id: string;
+  name: string;
+  avatarSeed: string;
+  bgColor: string;
+  avatarUri: string;
+}
+
+function BetaPill() {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div
+      className="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-col items-start gap-1.5"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
+        Beta 1.0
+      </div>
+
+      <AnimatePresence>
+        {isHovered && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="bg-white text-[#0f172a] border-2 border-[#0f172a] p-3 rounded-[8px] shadow-[3px_3px_0_#0f172a] max-w-[220px] text-left"
+          >
+            <p className="text-[10px] font-bold leading-normal">
+              The game is in beta. Some features might not work; they will come soon. There may be some bugs and glitches, so please bear with us!
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+interface CpuLobbyViewProps {
+  avatarOffset: number;
+  onNextAvatar: () => void;
+  avatarDataUri: string;
+  isLoading: boolean;
+  allBotNames: string[];
+  botBgColors: string[];
+  onBack: () => void;
+  onStart: (playerName: string, gameMode: 'classic' | 'flip', bots: CpuBot[], avatarSeed: string) => void;
+}
+
+function CpuLobbyView({ avatarOffset, onNextAvatar, avatarDataUri, isLoading, allBotNames, botBgColors, onBack, onStart }: CpuLobbyViewProps) {
+  const [cpuPlayerName, setCpuPlayerName] = useState(() => {
+    try {
+      return localStorage.getItem('uno_player_name') || '';
+    } catch (_) {
+      return '';
+    }
+  });
+  const [cpuGameMode, setCpuGameMode] = useState<'classic' | 'flip'>('classic');
+  const [bots, setBots] = useState<CpuBot[]>([]);
+  const [nameError, setNameError] = useState(false);
+  const [botError, setBotError] = useState(false);
+  const [shakeTrigger, setShakeTrigger] = useState(0);
+
+  const [debouncedCpuName, setDebouncedCpuName] = useState(cpuPlayerName);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCpuName(cpuPlayerName);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [cpuPlayerName]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('uno_player_name', cpuPlayerName);
+    } catch (_) { }
+  }, [cpuPlayerName]);
+
+  const cpuAvatarDataUri = useMemo(() => {
+    try {
+      const avatar = createAvatar(adventurer, {
+        seed: `${debouncedCpuName || 'Felix'}-${avatarOffset}`,
+        backgroundColor: ['cc3333', '0956bf', '379711', '8338ec']
+      });
+      return avatar.toDataUri();
+    } catch (e) {
+      console.error('Dicebear generation failed, falling back to static URI:', e);
+      return '';
+    }
+  }, [debouncedCpuName, avatarOffset]);
+
+  const usedNames = bots.map(b => b.name);
+
+  const generateBot = (): CpuBot => {
+    const available = allBotNames.filter(n => !usedNames.includes(n));
+    const name = available.length > 0
+      ? available[Math.floor(Math.random() * available.length)]
+      : allBotNames[Math.floor(Math.random() * allBotNames.length)] + `${bots.length + 1}`;
+    const bgColor = botBgColors[Math.floor(Math.random() * botBgColors.length)];
+    const seed = `bot-${name}-${Date.now()}`;
+    let avatarUri = '';
+    try {
+      avatarUri = createAvatar(adventurer, { seed, backgroundColor: [bgColor] }).toDataUri();
+    } catch (_) { }
+    return { id: seed, name, avatarSeed: seed, bgColor, avatarUri };
+  };
+
+  const addBot = () => {
+    if (bots.length >= 3) return;
+    setBots(prev => [...prev, generateBot()]);
+    setBotError(false);
+  };
+
+  const removeBot = (id: string) => {
+    setBots(prev => prev.filter(b => b.id !== id));
+  };
+
+  const handleStart = () => {
+    let hasError = false;
+    if (!cpuPlayerName.trim()) {
+      setNameError(true);
+      hasError = true;
+    }
+    if (bots.length < 1) {
+      setBotError(true);
+      hasError = true;
+    }
+    if (hasError) {
+      setShakeTrigger(prev => prev + 1);
+      return;
+    }
+    const avatarSeed = `${cpuPlayerName.trim()}-${avatarOffset}`;
+    onStart(cpuPlayerName.trim(), cpuGameMode, bots, avatarSeed);
+  };
+
+  return (
+    <div className="min-h-[100dvh] overflow-y-auto bg-neutral-bg text-neutral-text flex flex-col items-center justify-center py-10 px-4 sm:px-6 font-sans">
+      <BetaPill />
+      <div className="max-w-md w-full my-auto">
+        <div className="relative bg-neutral-card border-3 border-[#0f172a] rounded-[20px] pt-10 pb-6 px-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center w-full">
+
+          {/* Pill Header sitting on the top border, changes color on hover */}
+          <div className={`absolute left-6 -top-5.5 ${cpuGameMode === 'flip' ? 'bg-brand-flip' : 'bg-brand-blue hover:bg-brand-red'} border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a] transition-all duration-180 ease-out cursor-pointer`}>
+            <h2 className="text-white font-black text-xs tracking-wider uppercase select-none flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5" />
+              Play vs Computer
+            </h2>
+          </div>
+
+          {/* Back Button integrated symmetrically on the top-right border */}
+          <button
+            onClick={onBack}
+            title="Back to Main Menu"
+            className="absolute right-6 -top-5.5 bg-neutral-card hover:bg-brand-red hover:text-white text-[#0f172a] border-2 border-[#0f172a] px-3.5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a] transition-all duration-180 ease-in-out cursor-pointer flex items-center gap-1.5"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="font-bold text-xs tracking-wider uppercase select-none">Back</span>
+          </button>
+
+          {/* Dynamic Avatar Container with Floating Swap Button */}
+          <div className="mb-6 flex flex-col items-center mt-1">
+            <div className="relative">
+              {/* The avatar circle */}
+              <div className="w-20 h-20 bg-neutral-bg border-3 border-[#0f172a] rounded-full shadow-[4px_4px_0_#0f172a] overflow-hidden flex items-center justify-center transition-all duration-300">
+                {cpuAvatarDataUri && (
+                  <img
+                    src={cpuAvatarDataUri}
+                    alt="Player Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+
+              {/* Floating Avatar Swap Button */}
+              <button
+                onClick={onNextAvatar}
+                title="Cycle Avatar Style"
+                className="absolute -bottom-1 -right-1 w-8 h-8 bg-brand-yellow hover:bg-[#d8c206] active:scale-90 border-2 border-[#0f172a] rounded-full shadow-[2px_2px_0_#0f172a] flex items-center justify-center cursor-pointer transition-all duration-150"
+              >
+                <Users className="w-4 h-4 text-[#0f172a]" />
+              </button>
+            </div>
+          </div>
+
+          {/* Player Name Input Container with Shake */}
+          <div key={`name-${shakeTrigger}`} className={`brutalist-container w-full ${nameError ? 'animate-brutal-shake' : ''}`}>
+            <input
+              placeholder="ENTER YOUR NAME"
+              className={`brutalist-input ${nameError ? 'brutalist-input-error' : ''}`}
+              style={{
+                '--input-shadow-color': cpuGameMode === 'flip' ? '#4c1d95' : '#0956bf',
+                '--input-focus-shadow-color': cpuGameMode === 'flip' ? '#8338ec' : '#8338ec',
+              } as React.CSSProperties}
+              type="text"
+              value={cpuPlayerName}
+              onChange={(e) => {
+                setCpuPlayerName(e.target.value);
+                if (e.target.value.trim()) {
+                  setNameError(false);
+                }
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleStart(); }}
+            />
+            <label className={`brutalist-label ${nameError ? 'bg-[#cc3333]' : cpuGameMode === 'flip' ? 'bg-brand-flip' : 'bg-brand-blue'}`}>
+              {nameError ? 'Name is Required!' : 'Player Name'}
+            </label>
+          </div>
+
+          {/* Game Mode Switcher with Sliding animated background highlight */}
+          <div className="flex flex-col items-center w-full max-w-[256px] mt-2 mb-4">
+            <div className="flex w-full bg-neutral-card border-2 border-[#0f172a] rounded-[14px] p-0.5 shadow-[2px_2px_0_#0f172a] overflow-hidden relative">
+              <motion.div
+                className="absolute top-0.5 bottom-0.5 rounded-[10px] border-2 border-[#0f172a] shadow-[1px_1px_0_#0f172a] z-0"
+                style={{ width: 'calc(50% - 3px)' }}
+                animate={{
+                  x: cpuGameMode === 'classic' ? 0 : '100%',
+                  backgroundColor: cpuGameMode === 'classic' ? '#cc3333' : '#4c1d95'
+                }}
+                transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+              />
+
+              <button
+                onClick={() => setCpuGameMode('classic')}
+                className={`flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-[10px] cursor-pointer relative z-10 transition-colors duration-200 ${cpuGameMode === 'classic' ? 'text-white' : 'text-[#0f172a] hover:bg-neutral-bg/30'
+                  }`}
+              >
+                Classic
+              </button>
+              <button
+                onClick={() => setCpuGameMode('flip')}
+                className={`flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-[10px] cursor-pointer relative z-10 transition-colors duration-200 ${cpuGameMode === 'flip' ? 'text-white' : 'text-[#0f172a] hover:bg-neutral-bg/30'
+                  }`}
+              >
+                Flip
+              </button>
+            </div>
+          </div>
+
+          {/* Bot Builder section formatted like the lobby players list */}
+          <div key={`bots-${shakeTrigger}`} className={`w-full bg-neutral-bg border-2 border-[#0f172a] rounded-[16px] p-4 shadow-[3px_3px_0_#0f172a] mb-5 flex flex-col ${botError && bots.length < 1 ? 'animate-brutal-shake border-brand-red ring-2 ring-brand-red/30' : ''}`}>
+            <div className="flex items-center justify-between border-b-2 border-[#0f172a] pb-1.5 mb-2.5">
+              <div className={`text-[10px] font-black uppercase tracking-widest text-left ${botError && bots.length < 1 ? 'text-brand-red' : 'text-neutral-text'}`}>
+                {botError && bots.length < 1 ? 'Add at least 1 bot!' : `Opponents (${bots.length}/3)`}
+              </div>
+              <button
+                onClick={addBot}
+                disabled={bots.length >= 3}
+                className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border-2 border-[#0f172a] shadow-[1px_1px_0_#0f172a] transition-all cursor-pointer ${bots.length >= 3
+                    ? 'opacity-40 cursor-not-allowed bg-neutral-bg text-[#0f172a]'
+                    : 'bg-brand-green text-white hover:bg-green-600 active:scale-95'
+                  }`}
+              >
+                + Add Bot
+              </button>
+            </div>
+
+            {bots.length === 0 ? (
+              <div className="w-full py-6 border-2 border-dashed border-[#0f172a] rounded-[12px] flex flex-col items-center justify-center gap-2 text-neutral-muted bg-neutral-card">
+                <Cpu className="w-8 h-8 opacity-30" />
+                <span className="text-[10px] font-black uppercase tracking-wider opacity-50">No bots added yet</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 w-full max-h-[150px] overflow-y-auto no-scrollbar">
+                <AnimatePresence>
+                  {bots.map((bot) => (
+                    <motion.div
+                      key={bot.id}
+                      layout
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="flex items-center justify-between border-2 border-[#0f172a] rounded-[10px] p-2 shadow-[1.5px_1.5px_0_#0f172a] bg-white"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full border border-[#0f172a] overflow-hidden flex-shrink-0 bg-neutral-bg">
+                          {bot.avatarUri ? (
+                            <img src={bot.avatarUri} alt={bot.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-brand-blue" />
+                          )}
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="font-bold text-xs text-[#0f172a]">{bot.name}</span>
+                          <span className="text-[8px] font-black text-neutral-muted uppercase tracking-wider">AI Bot</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeBot(bot.id)}
+                        className="p-1 border border-[#0f172a] rounded bg-brand-red text-white hover:bg-red-700 active:scale-90 transition-all shadow-[1px_1px_0_#0f172a] cursor-pointer flex items-center justify-center"
+                        title={`Remove ${bot.name}`}
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                      </button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+
+          {/* 3D Start Game Button */}
+          <button
+            id="cpu-start-game-btn"
+            onClick={handleStart}
+            disabled={isLoading}
+            className={`btn-3d w-[256px] mt-4 ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+          >
+            <span className="btn-3d-shadow" />
+            <span className={`btn-3d-edge ${cpuGameMode === 'flip' ? 'btn-3d-edge-purple' : 'btn-3d-edge-green'}`} />
+            <div className={`btn-3d-front ${cpuGameMode === 'flip' ? 'btn-3d-front-purple' : 'btn-3d-front-green'} flex items-center justify-center relative w-full px-12 gap-2 text-xs font-bold uppercase tracking-wider`}>
+              {isLoading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span className="select-none">Starting...</span>
+                </>
+              ) : (
+                <span className="select-none">Start Game</span>
+              )}
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function App() {
+  const { height } = useWindowSize();
+  const isShort = height < 680;
+  const isVeryShort = height < 520;
+
   const [view, setView] = useState<'main' | 'friends' | 'computer' | 'lobby' | 'game'>(() => {
     try {
       // If a reconnect token exists, go to friends to reconnect.
@@ -1291,6 +1688,8 @@ function App() {
   const [lastPlayedCardKey, setLastPlayedCardKey] = useState<string | null>(null);
   const [pendingWildCard, setPendingWildCard] = useState<{ cardId: string; key: string } | null>(null);
   const lastWinnerRef = useRef<string | null>(null);
+  // Tracks whether the current game was started as a CPU game (to skip lobby flash)
+  const isCpuGameRef = useRef(false);
 
   useEffect(() => {
     if (room && room.winner) {
@@ -1376,6 +1775,7 @@ function App() {
   const handleLeaveLobby = () => {
     socket.disconnect();
     setRoom(null);
+    isCpuGameRef.current = false;
     try {
       localStorage.removeItem('uno_reconnect_token');
       localStorage.removeItem('uno_my_player_id');
@@ -1572,7 +1972,10 @@ function App() {
         console.warn('Failed to save reconnect token to localStorage:', e);
       }
       setRoom(data.room);
-      setView('lobby');
+      // For CPU games the server immediately fires game_started, skip the lobby
+      if (!isCpuGameRef.current) {
+        setView('lobby');
+      }
     });
 
     socket.on('room_joined', (data) => {
@@ -1808,7 +2211,8 @@ function App() {
 
   if (view === 'friends') {
     return (
-      <div className="h-screen overflow-hidden bg-neutral-bg text-neutral-text flex flex-col items-center pt-16 pb-6 px-6 font-sans">
+      <div className="min-h-[100dvh] overflow-y-auto bg-neutral-bg text-neutral-text flex flex-col items-center justify-center py-10 px-4 sm:px-6 font-sans">
+        <BetaPill />
         <div className="max-w-md w-full my-auto">
           {/* Panel with 20px radius in matching brutalist style */}
           <div className="relative bg-neutral-card border-3 border-[#0f172a] rounded-[20px] pt-10 pb-6 px-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center w-full">
@@ -1994,12 +2398,56 @@ function App() {
     );
   }
 
-  if (view === 'lobby' && room) {
-    const isHost = myPlayerId === room.hostId;
-    const canStart = room.players.length >= 2 && room.players.every((p: any) => p.id === room.hostId || p.isReady);
+  // ─── Play with Computer View ────────────────────────────────────────────────
+
+  if (view === 'computer') {
+    // Bot name pool (Indian + US names — no extra library needed)
+    const INDIAN_NAMES = ['Arjun', 'Priya', 'Ravi', 'Kavya', 'Vikram', 'Ananya', 'Rohan', 'Divya', 'Amit', 'Pooja'];
+    const US_NAMES = ['Jake', 'Emily', 'Tyler', 'Sarah', 'Brandon', 'Olivia', 'Mason', 'Emma', 'Logan', 'Ava'];
+    const ALL_BOT_NAMES = [...INDIAN_NAMES, ...US_NAMES];
+    const BOT_BG_COLORS = ['cc3333', '0956bf', '379711', '8338ec', 'e67e22', '1abc9c', 'c0392b', '2980b9'];
 
     return (
-      <div className="h-screen overflow-hidden bg-neutral-bg text-neutral-text flex flex-col items-center pt-16 pb-6 px-6 font-sans">
+      <CpuLobbyView
+        avatarOffset={avatarOffset}
+        onNextAvatar={handleNextAvatar}
+        avatarDataUri={avatarDataUri}
+        isLoading={isLoading}
+        allBotNames={ALL_BOT_NAMES}
+        botBgColors={BOT_BG_COLORS}
+        onBack={() => setView('main')}
+        onStart={(cpuPlayerName: string, cpuGameMode: 'classic' | 'flip', cpuBots: any[], cpuAvatarSeed: string) => {
+          try { localStorage.removeItem('uno_reconnect_token'); } catch (_) { }
+          isCpuGameRef.current = true;
+          setIsLoading(true);
+          const doStart = () => {
+            socket.emit('create_bot_room', {
+              playerName: cpuPlayerName,
+              gameMode: cpuGameMode,
+              avatarSeed: cpuAvatarSeed,
+              bots: cpuBots
+            });
+          };
+          if (socket.connected) {
+            doStart();
+          } else {
+            socket.disconnect();
+            socket.once('connect', doStart);
+            socket.connect();
+          }
+        }}
+      />
+    );
+  }
+
+  if (view === 'lobby' && room) {
+
+    const isHost = myPlayerId === room.hostId;
+    const canStart = room.players.length >= 2 && room.players.every((p: any) => p.isReady || p.id === room.hostId);
+
+    return (
+      <div className="min-h-[100dvh] overflow-y-auto bg-neutral-bg text-neutral-text flex flex-col items-center justify-center py-10 px-4 sm:px-6 font-sans">
+        <BetaPill />
         <div className="max-w-md w-full my-auto">
           {/* Panel with 20px radius in matching brutalist style */}
           <div className="relative bg-neutral-card border-3 border-[#0f172a] rounded-[20px] pt-12 pb-6 px-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center w-full">
@@ -2150,12 +2598,12 @@ function App() {
                 >
                   <span className="btn-3d-shadow" />
                   <span className={`btn-3d-edge ${canStart
-                      ? (room.gameMode === 'flip' ? 'btn-3d-edge-purple' : 'btn-3d-edge-red')
-                      : 'bg-neutral-muted'
+                    ? (room.gameMode === 'flip' ? 'btn-3d-edge-purple' : 'btn-3d-edge-red')
+                    : 'bg-neutral-muted'
                     }`} />
                   <div className={`btn-3d-front ${canStart
-                      ? (room.gameMode === 'flip' ? 'btn-3d-front-purple' : 'btn-3d-front-red')
-                      : 'bg-neutral-border text-neutral-muted border-2 border-[#0f172a]'
+                    ? (room.gameMode === 'flip' ? 'btn-3d-front-purple' : 'btn-3d-front-red')
+                    : 'bg-neutral-border text-neutral-muted border-2 border-[#0f172a]'
                     } flex items-center justify-center relative w-full px-12`}>
                     <span className="font-bold select-none uppercase tracking-wider text-xs">Start Game</span>
                   </div>
@@ -2354,488 +2802,560 @@ function App() {
       return [...room.players].sort((a: any, b: any) => (a.handCardCount || 0) - (b.handCardCount || 0));
     })();
 
+    const GAME_BACKGROUNDS: Record<string, string> = {
+      RED: '#cc3333',     // Official Mattel Red
+      BLUE: '#0956bf',    // Official UNO Blue
+      GREEN: '#379711',   // Official UNO Green
+      YELLOW: '#ecd407',  // Official UNO Yellow
+      PINK: '#ec4899',    // Official Flip Pink
+      TEAL: '#14b8a6',    // Official Flip Teal
+      ORANGE: '#f97316',  // Official Flip Orange
+      PURPLE: '#8b5cf6',  // Official Flip Purple
+    };
+
+    const activeColor = room.currentColor?.toUpperCase() || 'GREEN';
+    const bgColor = GAME_BACKGROUNDS[activeColor] || '#379711';
+
     return (
       <LayoutGroup>
-        <div className="h-screen w-screen bg-white relative overflow-hidden font-sans select-none flex flex-col items-center justify-end pb-16">
+        <div 
+          style={{ 
+            backgroundColor: bgColor,
+            backgroundImage: 'radial-gradient(circle at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.5) 100%)',
+            backgroundBlendMode: 'multiply'
+          }}
+          className={`h-screen w-screen relative overflow-hidden font-sans select-none flex flex-col items-center justify-end transition-colors duration-500 ${isVeryShort ? 'pb-4' : (isShort ? 'pb-8' : 'pb-16')}`}
+        >
+          <BetaPill />
 
+          {/* Opponents Avatars and Cards */}
+          {opponents.map((opp, idx) => {
+            let fanDirection: 'left' | 'right' | 'down' = 'down';
+            let layoutClass = 'flex items-center gap-8 sm:gap-12';
 
+            const scaleVal = isVeryShort ? 0.7 : (isShort ? 0.85 : 1.0);
+            const oppTop = isVeryShort ? '28%' : (isShort ? '32%' : '40%');
+            const positionStyle: React.CSSProperties = {
+              position: 'absolute',
+              zIndex: 30,
+            };
 
-        {/* Opponents Avatars and Cards */}
-        {opponents.map((opp, idx) => {
-          let positionClass = '';
-          let fanDirection: 'left' | 'right' | 'down' = 'down';
-          let layoutClass = 'flex items-center gap-8 sm:gap-12';
-
-          if (opponents.length === 1) {
-            // 1 Opponent: Top Center
-            positionClass = 'absolute top-6 left-1/2 -translate-x-1/2 z-30';
-            fanDirection = 'down';
-            layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
-          } else if (opponents.length === 2) {
-            // 2 Opponents: Left Center, Right Center
-            if (idx === 0) {
-              positionClass = 'absolute left-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
-              fanDirection = 'right';
-              layoutClass = 'flex items-center gap-8 sm:gap-12';
-            } else {
-              positionClass = 'absolute right-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
-              fanDirection = 'left';
-              layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
-            }
-          } else {
-            // 3 Opponents: Left, Top, Right
-            if (idx === 0) {
-              positionClass = 'absolute left-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
-              fanDirection = 'right';
-              layoutClass = 'flex items-center gap-8 sm:gap-12';
-            } else if (idx === 1) {
-              positionClass = 'absolute top-6 left-1/2 -translate-x-1/2 z-30';
+            if (opponents.length === 1) {
+              // 1 Opponent: Top Center
+              positionStyle.left = '50%';
+              positionStyle.top = isVeryShort ? '8px' : '24px';
+              positionStyle.transform = `translateX(-50%) scale(${scaleVal})`;
+              positionStyle.transformOrigin = 'top center';
               fanDirection = 'down';
               layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
+            } else if (opponents.length === 2) {
+              // 2 Opponents: Left Center, Right Center
+              if (idx === 0) {
+                positionStyle.left = isVeryShort ? '8px' : '24px';
+                positionStyle.top = oppTop;
+                positionStyle.transform = `translateY(-50%) scale(${scaleVal})`;
+                positionStyle.transformOrigin = 'left center';
+                fanDirection = 'right';
+                layoutClass = 'flex items-center gap-8 sm:gap-12';
+              } else {
+                positionStyle.right = isVeryShort ? '8px' : '24px';
+                positionStyle.top = oppTop;
+                positionStyle.transform = `translateY(-50%) scale(${scaleVal})`;
+                positionStyle.transformOrigin = 'right center';
+                fanDirection = 'left';
+                layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
+              }
             } else {
-              positionClass = 'absolute right-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
-              fanDirection = 'left';
-              layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
+              // 3 Opponents: Left, Top, Right
+              if (idx === 0) {
+                positionStyle.left = isVeryShort ? '8px' : '24px';
+                positionStyle.top = oppTop;
+                positionStyle.transform = `translateY(-50%) scale(${scaleVal})`;
+                positionStyle.transformOrigin = 'left center';
+                fanDirection = 'right';
+                layoutClass = 'flex items-center gap-8 sm:gap-12';
+              } else if (idx === 1) {
+                positionStyle.left = '50%';
+                positionStyle.top = isVeryShort ? '8px' : '24px';
+                positionStyle.transform = `translateX(-50%) scale(${scaleVal})`;
+                positionStyle.transformOrigin = 'top center';
+                fanDirection = 'down';
+                layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
+              } else {
+                positionStyle.right = isVeryShort ? '8px' : '24px';
+                positionStyle.top = oppTop;
+                positionStyle.transform = `translateY(-50%) scale(${scaleVal})`;
+                positionStyle.transformOrigin = 'right center';
+                fanDirection = 'left';
+                layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
+              }
             }
-          }
 
-          return (
-            <div key={opp.id} className={positionClass}>
-              <div className={layoutClass}>
-                <GamePlayerAvatar
-                  name={opp.name}
-                  avatarSeed={opp.avatarSeed || opp.name}
-                  cardCount={opp.handCardCount || 0}
-                  isTurn={room.players[room.currentTurn]?.id === opp.id}
-                  isMe={false}
-                  turnStartedAt={room.turnStartedAt}
-                />
-                <div className="relative flex items-center justify-center h-[86px] sm:h-[136px]">
-                  <OpponentCardFan 
-                    cardCount={opp.handCardCount || 0} 
-                    direction={fanDirection} 
-                    side={room.side} 
-                    gameMode={room.gameMode} 
+            return (
+              <div key={opp.id} style={positionStyle} className="transition-all duration-300">
+                <div className={layoutClass}>
+                  <GamePlayerAvatar
+                    name={opp.name}
+                    avatarSeed={opp.avatarSeed || opp.name}
+                    cardCount={opp.handCardCount || 0}
+                    isTurn={room.players[room.currentTurn]?.id === opp.id}
+                    isMe={false}
+                    turnStartedAt={room.turnStartedAt}
                   />
+                  <div className="relative flex items-center justify-center h-[86px] sm:h-[136px]">
+                    <OpponentCardFan
+                      cardCount={opp.handCardCount || 0}
+                      direction={fanDirection}
+                      side={room.side}
+                      gameMode={room.gameMode}
+                      isShort={isShort}
+                      isVeryShort={isVeryShort}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-        
-        {/* Active Player Avatar Badge (Bottom Left) */}
-        <div className="absolute left-6 bottom-6 sm:left-10 sm:bottom-10 z-[250]">
-          <GamePlayerAvatar
-            name={player?.name || ''}
-            avatarSeed={player?.avatarSeed || ''}
-            cardCount={hand.length}
-            isTurn={room.players[room.currentTurn]?.id === myPlayerId}
-            isMe={true}
-            turnStartedAt={room.turnStartedAt}
-          />
-        </div>
+            );
+          })}
 
-        {/* Settings button in the top-right */}
-        <div className="absolute top-6 right-6 z-50">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-            className="p-3 border-3 border-[#0f172a] rounded-[12px] bg-white hover:bg-neutral-bg text-[#0f172a] shadow-[4px_4px_0_#0f172a] transition-all cursor-pointer flex items-center justify-center"
-            title="Open Settings"
-          >
-            <motion.div
-              animate={{ rotate: isSettingsOpen ? 90 : 0 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-            >
-              <Settings className="w-5 h-5" />
-            </motion.div>
-          </motion.button>
-
-          {/* Settings Dropdown Menu */}
-          <AnimatePresence>
-            {isSettingsOpen && (
-              <>
-                <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsSettingsOpen(false)} />
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-3 w-56 bg-white border-3 border-[#0f172a] rounded-[16px] shadow-[6px_6px_0_#0f172a] p-3 z-50 flex flex-col gap-2"
-                >
-                  <div className="text-[10px] font-black text-neutral-muted uppercase tracking-widest border-b-2 border-[#0f172a] pb-1.5 mb-1 text-left">
-                    Game Menu
-                  </div>
-                  
-                  <button
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      setIsRuleBookOpen(true);
-                    }}
-                    className="flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-[#0f172a] hover:bg-brand-blue hover:text-white rounded-[8px] transition-colors border border-transparent hover:border-[#0f172a] cursor-pointer"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    <span>Rule Book</span>
-                  </button>
-
-                  <button
-                    onClick={() => setSoundEnabled(!soundEnabled)}
-                    className="flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-[#0f172a] hover:bg-brand-green hover:text-white rounded-[8px] transition-colors border border-transparent hover:border-[#0f172a] cursor-pointer"
-                  >
-                    {soundEnabled ? (
-                      <>
-                        <Volume2 className="w-4 h-4" />
-                        <span>Mute Sounds</span>
-                      </>
-                    ) : (
-                      <>
-                        <VolumeX className="w-4 h-4" />
-                        <span>Unmute Sounds</span>
-                      </>
-                    )}
-                  </button>
-
-                  <div className="border-t-2 border-[#0f172a] my-1" />
-
-                  <button
-                    onClick={() => {
-                      setIsSettingsOpen(false);
-                      if (confirm("Are you sure you want to leave the game?")) {
-                        handleLeaveLobby();
-                      }
-                    }}
-                    className="flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-white bg-brand-red hover:bg-red-700 rounded-[8px] transition-colors border border-[#0f172a] cursor-pointer shadow-[2px_2px_0_#0f172a] active:scale-95 animate-pulse"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Leave Room</span>
-                  </button>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Center Board (Draw Pile and Discard Pile) */}
-        <div className="absolute top-[35%] sm:top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center gap-6 sm:gap-16 pointer-events-auto z-10">
-          {/* Draw Pile (Clickable to draw a card) */}
+          {/* Active Player Avatar Badge (Bottom Left) */}
           <div
-            onClick={() => socket.emit('draw_card', { roomId: room.roomId })}
-            className="relative cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 w-[90px] h-[130px] sm:w-[152px] sm:h-[220px]"
-            title="Draw Card"
+            className="absolute z-[250] transition-all duration-300"
+            style={{
+              left: isVeryShort ? '16px' : (isShort ? '24px' : '32px'),
+              bottom: isVeryShort ? '16px' : (isShort ? '24px' : '32px'),
+              transform: isVeryShort ? 'scale(0.7)' : (isShort ? 'scale(0.85)' : 'scale(1.0)'),
+              transformOrigin: 'bottom left'
+            }}
           >
-            <div
-              className="absolute inset-0 bg-neutral-border rounded-[7px] sm:rounded-[12px] border-3 border-[#0f172a]"
-              style={{
-                transform: 'translate(4px, 4px)',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-              }}
+            <GamePlayerAvatar
+              name={player?.name || ''}
+              avatarSeed={player?.avatarSeed || ''}
+              cardCount={hand.length}
+              isTurn={room.players[room.currentTurn]?.id === myPlayerId}
+              isMe={true}
+              turnStartedAt={room.turnStartedAt}
             />
-            <div
-              className="absolute inset-0 bg-neutral-border rounded-[7px] sm:rounded-[12px] border-3 border-[#0f172a]"
-              style={{
-                transform: 'translate(2px, 2px)',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
-              }}
-            />
-            <div
-              className="absolute inset-0 bg-[#0f172a] rounded-[7px] sm:rounded-[12px] overflow-hidden border-3 border-[#0f172a] flex items-center justify-center shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
-            >
-              <img
-                src="/cards/Deck.png"
-                alt="Draw Deck"
-                className="w-full h-full object-contain pointer-events-none"
-                style={{ 
-                  imageRendering: 'pixelated',
-                  filter: room.gameMode === 'flip' && room.side === 'dark' 
-                    ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)' 
-                    : 'none'
-                }}
-              />
-            </div>
           </div>
 
-          {/* Discard Pile Stack */}
-          <DiscardPile
-            room={room}
+          {/* Settings button in the top-right */}
+          <div
+            className="absolute z-50 transition-all duration-300"
+            style={{
+              top: isVeryShort ? '12px' : '24px',
+              right: isVeryShort ? '12px' : '24px',
+              transform: isVeryShort ? 'scale(0.8)' : 'scale(1.0)',
+              transformOrigin: 'top right'
+            }}
+          >
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className="p-3 border-3 border-[#0f172a] rounded-[12px] bg-white hover:bg-neutral-bg text-[#0f172a] shadow-[4px_4px_0_#0f172a] transition-all cursor-pointer flex items-center justify-center"
+              title="Open Settings"
+            >
+              <motion.div
+                animate={{ rotate: isSettingsOpen ? 90 : 0 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+              >
+                <Settings className="w-5 h-5" />
+              </motion.div>
+            </motion.button>
+
+            {/* Settings Dropdown Menu */}
+            <AnimatePresence>
+              {isSettingsOpen && (
+                <>
+                  <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsSettingsOpen(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 mt-3 w-56 bg-white border-3 border-[#0f172a] rounded-[16px] shadow-[6px_6px_0_#0f172a] p-3 z-50 flex flex-col gap-2"
+                  >
+                    <div className="text-[10px] font-black text-neutral-muted uppercase tracking-widest border-b-2 border-[#0f172a] pb-1.5 mb-1 text-left">
+                      Game Menu
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        setIsRuleBookOpen(true);
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-[#0f172a] hover:bg-brand-blue hover:text-white rounded-[8px] transition-colors border border-transparent hover:border-[#0f172a] cursor-pointer"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      <span>Rule Book</span>
+                    </button>
+
+                    <button
+                      onClick={() => setSoundEnabled(!soundEnabled)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-[#0f172a] hover:bg-brand-green hover:text-white rounded-[8px] transition-colors border border-transparent hover:border-[#0f172a] cursor-pointer"
+                    >
+                      {soundEnabled ? (
+                        <>
+                          <Volume2 className="w-4 h-4" />
+                          <span>Mute Sounds</span>
+                        </>
+                      ) : (
+                        <>
+                          <VolumeX className="w-4 h-4" />
+                          <span>Unmute Sounds</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="border-t-2 border-[#0f172a] my-1" />
+
+                    <button
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        if (confirm("Are you sure you want to leave the game?")) {
+                          handleLeaveLobby();
+                        }
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-white bg-brand-red hover:bg-red-700 rounded-[8px] transition-colors border border-[#0f172a] cursor-pointer shadow-[2px_2px_0_#0f172a] active:scale-95 animate-pulse"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Leave Room</span>
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Center Board (Draw Pile and Discard Pile) */}
+          <div
+            style={{
+              top: isVeryShort ? '28%' : (isShort ? '32%' : '40%'),
+              transform: `translate(-50%, -50%) scale(${isVeryShort ? 0.7 : (isShort ? 0.85 : 1.0)})`,
+              transformOrigin: 'center center'
+            }}
+            className="absolute left-1/2 flex items-center justify-center gap-6 sm:gap-16 pointer-events-auto z-10 transition-all duration-300"
+          >
+            {/* Draw Pile (Clickable to draw a card) */}
+            <div
+              onClick={() => socket.emit('draw_card', { roomId: room.roomId })}
+              className="relative cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 w-[90px] h-[130px] sm:w-[152px] sm:h-[220px]"
+              title="Draw Card"
+            >
+              <div
+                className="absolute inset-0 bg-neutral-border rounded-[7px] sm:rounded-[12px] border-3 border-[#0f172a]"
+                style={{
+                  transform: 'translate(4px, 4px)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                }}
+              />
+              <div
+                className="absolute inset-0 bg-neutral-border rounded-[7px] sm:rounded-[12px] border-3 border-[#0f172a]"
+                style={{
+                  transform: 'translate(2px, 2px)',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
+                }}
+              />
+              <div
+                className="absolute inset-0 bg-[#0f172a] rounded-[7px] sm:rounded-[12px] overflow-hidden border-3 border-[#0f172a] flex items-center justify-center shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
+              >
+                <img
+                  src="/cards/Deck.png"
+                  alt="Draw Deck"
+                  className="w-full h-full object-contain pointer-events-none"
+                  style={{
+                    imageRendering: 'pixelated',
+                    filter: room.gameMode === 'flip' && room.side === 'dark'
+                      ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)'
+                      : 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Discard Pile Stack */}
+            <DiscardPile
+              room={room}
+              side={room.side}
+              gameMode={room.gameMode}
+              lastPlayedCardKey={lastPlayedCardKey}
+              onResetPlayedKey={() => setLastPlayedCardKey(null)}
+            />
+          </div>
+
+          {/* Fanned Player Cards View in React (Facing the player) */}
+          <HandCanvas
+            hand={hand}
             side={room.side}
             gameMode={room.gameMode}
+            roomId={room.roomId}
+            socket={socket}
+            onCardPlay={setLastPlayedCardKey}
+            room={room}
+            myPlayerId={myPlayerId}
+            onPlayWild={(cardId, cardKey) => setPendingWildCard({ cardId, key: cardKey })}
             lastPlayedCardKey={lastPlayedCardKey}
-            onResetPlayedKey={() => setLastPlayedCardKey(null)}
+            soundEnabled={soundEnabled}
+            isShort={isShort}
+            isVeryShort={isVeryShort}
           />
-        </div>
 
-        {/* Fanned Player Cards View in React (Facing the player) */}
-        <HandCanvas
-          hand={hand}
-          side={room.side}
-          gameMode={room.gameMode}
-          roomId={room.roomId}
-          socket={socket}
-          onCardPlay={setLastPlayedCardKey}
-          room={room}
-          myPlayerId={myPlayerId}
-          onPlayWild={(cardId, cardKey) => setPendingWildCard({ cardId, key: cardKey })}
-          lastPlayedCardKey={lastPlayedCardKey}
-          soundEnabled={soundEnabled}
-        />
-
-        {/* Wild Color Selection Modal */}
-        <AnimatePresence>
-          {pendingWildCard && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full"
-              >
-                <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-5 select-none">
-                  Choose a Color
-                </h3>
-                <div className="grid grid-cols-2 gap-4 w-full">
-                  {(() => {
-                    const isDarkSide = room.gameMode === 'flip' && room.side === 'dark';
-                    const colors = isDarkSide
-                      ? [
+          {/* Wild Color Selection Modal */}
+          <AnimatePresence>
+            {pendingWildCard && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full"
+                >
+                  <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-5 select-none">
+                    Choose a Color
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 w-full">
+                    {(() => {
+                      const isDarkSide = room.gameMode === 'flip' && room.side === 'dark';
+                      const colors = isDarkSide
+                        ? [
                           { name: 'PINK', hex: '#ec4899', hover: '#db2777', text: 'white' },
                           { name: 'TEAL', hex: '#14b8a6', hover: '#0d9488', text: 'white' },
                           { name: 'ORANGE', hex: '#f97316', hover: '#ea580c', text: 'white' },
                           { name: 'PURPLE', hex: '#8b5cf6', hover: '#7c3aed', text: 'white' }
                         ]
-                      : [
+                        : [
                           { name: 'RED', hex: '#cc3333', hover: '#b32424', text: 'white' },
                           { name: 'BLUE', hex: '#0956bf', hover: '#0748a1', text: 'white' },
                           { name: 'GREEN', hex: '#379711', hover: '#2c7a0d', text: 'white' },
                           { name: 'YELLOW', hex: '#ecd407', hover: '#d8c206', text: '#0f172a' }
                         ];
-                    return colors.map((c) => (
-                      <button
-                        key={c.name}
-                        onClick={() => {
-                          const cardId = pendingWildCard.cardId;
-                          const key = pendingWildCard.key;
-                          setLastPlayedCardKey(key);
-                          socket.emit('play_card', { roomId: room.roomId, cardId, chosenColor: c.name });
-                          setPendingWildCard(null);
-                        }}
-                        style={{ backgroundColor: c.hex }}
-                        className="py-4 border-2 border-[#0f172a] rounded-[14px] shadow-[3px_3px_0_#0f172a] hover:scale-105 active:scale-95 transition-all cursor-pointer font-black text-xs uppercase tracking-wider"
-                        type="button"
-                      >
-                        <span style={{ color: c.text }}>{c.name}</span>
-                      </button>
-                    ));
-                  })()}
-                </div>
-                <button
-                  onClick={() => setPendingWildCard(null)}
-                  className="mt-6 px-4 py-2 border-2 border-[#0f172a] rounded-lg bg-neutral-bg hover:bg-neutral-border text-[#0f172a] font-bold text-xs uppercase cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+                      return colors.map((c) => (
+                        <button
+                          key={c.name}
+                          onClick={() => {
+                            const cardId = pendingWildCard.cardId;
+                            const key = pendingWildCard.key;
+                            setLastPlayedCardKey(key);
+                            socket.emit('play_card', { roomId: room.roomId, cardId, chosenColor: c.name });
+                            setPendingWildCard(null);
+                          }}
+                          style={{ backgroundColor: c.hex }}
+                          className="py-4 border-2 border-[#0f172a] rounded-[14px] shadow-[3px_3px_0_#0f172a] hover:scale-105 active:scale-95 transition-all cursor-pointer font-black text-xs uppercase tracking-wider"
+                          type="button"
+                        >
+                          <span style={{ color: c.text }}>{c.name}</span>
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                  <button
+                    onClick={() => setPendingWildCard(null)}
+                    className="mt-6 px-4 py-2 border-2 border-[#0f172a] rounded-lg bg-neutral-bg hover:bg-neutral-border text-[#0f172a] font-bold text-xs uppercase cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
-        {/* Challenge Wild Draw Modal */}
-        <AnimatePresence>
-          {room?.pendingChallenge && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full"
-              >
-                {room.pendingChallenge.targetPlayerId === myPlayerId ? (
-                  <>
-                    <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center">
-                      {room.pendingChallenge.type.replace(/_/g, ' ')} Played!
-                    </h3>
-                    <p className="text-xs text-neutral-muted font-bold text-center mb-6 leading-relaxed">
-                      {room.players.find((p: any) => p.id === room.pendingChallenge.playedBy)?.name || 'Someone'} played a {room.pendingChallenge.type.replace(/_/g, ' ')}. You can challenge it if you think they had a matching color card in their hand!
-                    </p>
-                    <div className="flex flex-col gap-3 w-full">
-                      <button
-                        onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: true })}
-                        className="btn-3d w-full"
-                      >
-                        <span className="btn-3d-shadow" />
-                        <span className="btn-3d-edge btn-3d-edge-purple" />
-                        <div className="btn-3d-front btn-3d-front-purple flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
-                          Challenge Play
+          {/* Challenge Wild Draw Modal */}
+          <AnimatePresence>
+            {room?.pendingChallenge && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full"
+                >
+                  {room.pendingChallenge.targetPlayerId === myPlayerId ? (
+                    <>
+                      <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center">
+                        {room.pendingChallenge.type.replace(/_/g, ' ')} Played!
+                      </h3>
+                      <p className="text-xs text-neutral-muted font-bold text-center mb-6 leading-relaxed">
+                        {room.players.find((p: any) => p.id === room.pendingChallenge.playedBy)?.name || 'Someone'} played a {room.pendingChallenge.type.replace(/_/g, ' ')}. You can challenge it if you think they had a matching color card in their hand!
+                      </p>
+                      <div className="flex flex-col gap-3 w-full">
+                        <button
+                          onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: true })}
+                          className="btn-3d w-full"
+                        >
+                          <span className="btn-3d-shadow" />
+                          <span className="btn-3d-edge btn-3d-edge-purple" />
+                          <div className="btn-3d-front btn-3d-front-purple flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                            Challenge Play
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: false })}
+                          className="btn-3d w-full"
+                        >
+                          <span className="btn-3d-shadow" />
+                          <span className="btn-3d-edge btn-3d-edge-blue" />
+                          <div className="btn-3d-front btn-3d-front-blue flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                            Accept (+Draw)
+                          </div>
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center animate-pulse">
+                        Resolving Challenge...
+                      </h3>
+                      <p className="text-xs text-neutral-muted font-bold text-center leading-relaxed">
+                        Waiting for {room.players.find((p: any) => p.id === room.pendingChallenge.targetPlayerId)?.name || 'the next player'} to decide whether to challenge the play.
+                      </p>
+                    </>
+                  )}
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* Game End Victory/Defeat Modal Overlay */}
+          <AnimatePresence>
+            {room.winner && (
+              <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 sm:p-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-md w-full select-none max-h-[90vh] overflow-y-auto"
+                >
+                  {/* Visual Header */}
+                  {room.winner === myPlayerId ? (
+                    <div className="flex flex-col items-center mb-6">
+                      <Crown className="w-12 h-12 text-brand-yellow drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] animate-bounce" style={{ fill: '#ecd407' }} />
+                      <h2 className="text-[#0f172a] font-black text-3xl tracking-widest uppercase mt-2">
+                        Victory!
+                      </h2>
+                      <p className="text-xs font-black text-brand-green uppercase tracking-wider mt-1 animate-pulse">
+                        You dominated the table!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center mb-6">
+                      <h2 className="text-[#0f172a] font-black text-3xl tracking-widest uppercase">
+                        Defeat
+                      </h2>
+                      <p className="text-xs font-black text-neutral-muted uppercase tracking-wider mt-1">
+                        Better luck next round!
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Winner's Avatar Showcase */}
+                  {(() => {
+                    const winnerPlayer = room.players.find((p: any) => p.id === room.winner);
+                    if (!winnerPlayer) return null;
+                    const winnerAvatarUri = createAvatar(adventurer, {
+                      seed: winnerPlayer.avatarSeed || winnerPlayer.name,
+                      backgroundColor: ['cc3333', '0956bf', '379711', '8338ec']
+                    }).toDataUri();
+
+                    return (
+                      <div className="flex flex-col items-center mb-6">
+                        <div className={`relative w-20 h-20 bg-white border-4 border-[#0f172a] rounded-[16px] shadow-[4px_4px_0_#0f172a] overflow-hidden flex items-center justify-center ${room.winner === myPlayerId ? 'ring-4 ring-brand-yellow' : ''}`}>
+                          {winnerAvatarUri && (
+                            <img src={winnerAvatarUri} alt={winnerPlayer.name} className="w-full h-full object-cover" />
+                          )}
                         </div>
-                      </button>
+                        <span className="font-extrabold text-sm text-[#0f172a] uppercase tracking-wide mt-3">
+                          {winnerPlayer.name} takes the crown
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Scoreboard / Leaderboard Table */}
+                  <div className="w-full bg-neutral-bg border-2 border-[#0f172a] rounded-[16px] p-4 shadow-[3px_3px_0_#0f172a] mb-6">
+                    <div className="text-[10px] font-black text-neutral-text uppercase tracking-widest border-b-2 border-[#0f172a] pb-1.5 mb-2.5 text-left">
+                      Round Standings
+                    </div>
+                    <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto no-scrollbar">
+                      {scoreboardPlayers.map((p: any, rankIdx: number) => {
+                        const avatarUri = createAvatar(adventurer, {
+                          seed: p.avatarSeed || p.name,
+                          backgroundColor: ['cc3333', '0956bf', '379711', '8338ec']
+                        }).toDataUri();
+                        const isSelf = p.id === myPlayerId;
+
+                        return (
+                          <div
+                            key={p.id}
+                            className={`flex items-center justify-between border-2 border-[#0f172a] rounded-[10px] p-2 shadow-[1.5px_1.5px_0_#0f172a] ${isSelf ? 'bg-white' : 'bg-neutral-card'}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-black text-xs text-[#0f172a] w-4 text-center">
+                                #{rankIdx + 1}
+                              </span>
+                              <div className="w-7 h-7 rounded-full border border-[#0f172a] overflow-hidden bg-neutral-bg">
+                                <img src={avatarUri} alt={p.name} className="w-full h-full object-cover" />
+                              </div>
+                              <span className="font-bold text-xs text-[#0f172a] truncate max-w-[120px]">
+                                {p.name}
+                              </span>
+                            </div>
+                            <span className="text-[10px] font-black text-neutral-text bg-white px-2 py-0.5 border border-[#0f172a] rounded">
+                              {p.handCardCount || 0} cards
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-3 w-full items-center">
+                    {myPlayerId === room.hostId ? (
                       <button
-                        onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: false })}
+                        onClick={() => socket.emit('back_to_lobby', { roomId: room.roomId })}
                         className="btn-3d w-full"
                       >
                         <span className="btn-3d-shadow" />
                         <span className="btn-3d-edge btn-3d-edge-blue" />
                         <div className="btn-3d-front btn-3d-front-blue flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
-                          Accept (+Draw)
+                          Back to Lobby
                         </div>
                       </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center animate-pulse">
-                      Resolving Challenge...
-                    </h3>
-                    <p className="text-xs text-neutral-muted font-bold text-center leading-relaxed">
-                      Waiting for {room.players.find((p: any) => p.id === room.pendingChallenge.targetPlayerId)?.name || 'the next player'} to decide whether to challenge the play.
-                    </p>
-                  </>
-                )}
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-        {/* Game End Victory/Defeat Modal Overlay */}
-        <AnimatePresence>
-          {room.winner && (
-            <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 sm:p-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-md w-full select-none"
-              >
-                {/* Visual Header */}
-                {room.winner === myPlayerId ? (
-                  <div className="flex flex-col items-center mb-6">
-                    <Crown className="w-12 h-12 text-brand-yellow drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] animate-bounce" style={{ fill: '#ecd407' }} />
-                    <h2 className="text-[#0f172a] font-black text-3xl tracking-widest uppercase mt-2">
-                      Victory!
-                    </h2>
-                    <p className="text-xs font-black text-brand-green uppercase tracking-wider mt-1 animate-pulse">
-                      You dominated the table!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center mb-6">
-                    <h2 className="text-[#0f172a] font-black text-3xl tracking-widest uppercase">
-                      Defeat
-                    </h2>
-                    <p className="text-xs font-black text-neutral-muted uppercase tracking-wider mt-1">
-                      Better luck next round!
-                    </p>
-                  </div>
-                )}
-
-                {/* Winner's Avatar Showcase */}
-                {(() => {
-                  const winnerPlayer = room.players.find((p: any) => p.id === room.winner);
-                  if (!winnerPlayer) return null;
-                  const winnerAvatarUri = createAvatar(adventurer, {
-                    seed: winnerPlayer.avatarSeed || winnerPlayer.name,
-                    backgroundColor: ['cc3333', '0956bf', '379711', '8338ec']
-                  }).toDataUri();
-
-                  return (
-                    <div className="flex flex-col items-center mb-6">
-                      <div className={`relative w-20 h-20 bg-white border-4 border-[#0f172a] rounded-[16px] shadow-[4px_4px_0_#0f172a] overflow-hidden flex items-center justify-center ${room.winner === myPlayerId ? 'ring-4 ring-brand-yellow' : ''}`}>
-                        {winnerAvatarUri && (
-                          <img src={winnerAvatarUri} alt={winnerPlayer.name} className="w-full h-full object-cover" />
-                        )}
+                    ) : (
+                      <div className="text-[10px] font-black text-neutral-muted uppercase tracking-wider text-center py-2 animate-pulse">
+                        Waiting for host to return to lobby...
                       </div>
-                      <span className="font-extrabold text-sm text-[#0f172a] uppercase tracking-wide mt-3">
-                        {winnerPlayer.name} takes the crown
-                      </span>
-                    </div>
-                  );
-                })()}
+                    )}
 
-                {/* Scoreboard / Leaderboard Table */}
-                <div className="w-full bg-neutral-bg border-2 border-[#0f172a] rounded-[16px] p-4 shadow-[3px_3px_0_#0f172a] mb-6">
-                  <div className="text-[10px] font-black text-neutral-text uppercase tracking-widest border-b-2 border-[#0f172a] pb-1.5 mb-2.5 text-left">
-                    Round Standings
-                  </div>
-                  <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto no-scrollbar">
-                    {scoreboardPlayers.map((p: any, rankIdx: number) => {
-                      const avatarUri = createAvatar(adventurer, {
-                        seed: p.avatarSeed || p.name,
-                        backgroundColor: ['cc3333', '0956bf', '379711', '8338ec']
-                      }).toDataUri();
-                      const isSelf = p.id === myPlayerId;
-
-                      return (
-                        <div
-                          key={p.id}
-                          className={`flex items-center justify-between border-2 border-[#0f172a] rounded-[10px] p-2 shadow-[1.5px_1.5px_0_#0f172a] ${isSelf ? 'bg-white' : 'bg-neutral-card'}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="font-black text-xs text-[#0f172a] w-4 text-center">
-                              #{rankIdx + 1}
-                            </span>
-                            <div className="w-7 h-7 rounded-full border border-[#0f172a] overflow-hidden bg-neutral-bg">
-                              <img src={avatarUri} alt={p.name} className="w-full h-full object-cover" />
-                            </div>
-                            <span className="font-bold text-xs text-[#0f172a] truncate max-w-[120px]">
-                              {p.name}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-black text-neutral-text bg-white px-2 py-0.5 border border-[#0f172a] rounded">
-                            {p.handCardCount || 0} cards
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex flex-col gap-3 w-full items-center">
-                  {myPlayerId === room.hostId ? (
                     <button
-                      onClick={() => socket.emit('back_to_lobby', { roomId: room.roomId })}
+                      onClick={() => {
+                        if (confirm("Are you sure you want to leave this game room?")) {
+                          handleLeaveLobby();
+                        }
+                      }}
                       className="btn-3d w-full"
                     >
                       <span className="btn-3d-shadow" />
-                      <span className="btn-3d-edge btn-3d-edge-blue" />
-                      <div className="btn-3d-front btn-3d-front-blue flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
-                        Back to Lobby
+                      <span className="btn-3d-edge btn-3d-edge-red" />
+                      <div className="btn-3d-front btn-3d-front-red flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                        Leave Room
                       </div>
                     </button>
-                  ) : (
-                    <div className="text-[10px] font-black text-neutral-muted uppercase tracking-wider text-center py-2 animate-pulse">
-                      Waiting for host to return to lobby...
-                    </div>
-                  )}
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
-                  <button
-                    onClick={() => {
-                      if (confirm("Are you sure you want to leave this game room?")) {
-                        handleLeaveLobby();
-                      }
-                    }}
-                    className="btn-3d w-full"
-                  >
-                    <span className="btn-3d-shadow" />
-                    <span className="btn-3d-edge btn-3d-edge-red" />
-                    <div className="btn-3d-front btn-3d-front-red flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
-                      Leave Room
-                    </div>
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-
-      </div>
-    </LayoutGroup>
+        </div>
+      </LayoutGroup>
     );
   }
 
   if (view === 'computer') {
     return (
-      <div className="min-h-screen bg-neutral-bg text-neutral-text flex flex-col items-center justify-center p-6 font-sans">
+      <div className="min-h-[100dvh] bg-neutral-bg text-neutral-text flex flex-col items-center justify-center py-10 px-4 sm:px-6 font-sans">
+        <BetaPill />
         <div className="max-w-md w-full">
           {/* Panel with 20px radius in matching brutalist style */}
           <div className="relative bg-neutral-card border-3 border-[#0f172a] rounded-[20px] pt-12 pb-8 px-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center w-full min-h-[200px]">
@@ -2866,7 +3386,8 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-bg text-neutral-text flex flex-col items-center justify-center p-6 font-sans">
+    <div className="min-h-[100dvh] bg-neutral-bg text-neutral-text flex flex-col items-center justify-center py-10 px-4 sm:px-6 font-sans">
+      <BetaPill />
       <div className="max-w-4xl w-full text-center">
         {/* UNO with Friends Pill Header matching the Play with Friends style */}
         <div className="flex justify-center mb-12">
