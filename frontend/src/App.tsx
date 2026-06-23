@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { Users, Cpu, ArrowLeft, Crown, Copy, Check, UserMinus, Settings, BookOpen, Volume2, VolumeX, LogOut } from 'lucide-react';
+import { Users, Cpu, ArrowLeft, Crown, Copy, Check, UserMinus, Settings, BookOpen, Volume2, VolumeX, LogOut, Megaphone, Zap } from 'lucide-react';
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
 import { io } from 'socket.io-client';
@@ -550,7 +550,7 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
         // rotate tilts outer cards outwards
         const rotate = offset * rotationFactor;
 
-        const style: React.CSSProperties = {
+        const outerStyle: React.CSSProperties = {
           position: 'absolute',
           bottom: `${bottomOffset}px`,
           left: `calc(50% - ${cardW / 2}px)`,
@@ -560,38 +560,41 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
           transformOrigin: 'bottom center',
           zIndex: idx,
           filter: cardBackFilter,
-          WebkitBoxReflect: 'below 1px linear-gradient(transparent 75%, rgba(255, 255, 255, 0.12))',
         };
 
+        const isTopCard = idx === visibleCards - 1;
+
         return (
-          <div
-            key={idx}
-            style={style}
-            className="rounded-[6px] border-2 border-[#0f172a] shadow-[1px_2px_4px_rgba(0,0,0,0.18)] bg-white overflow-hidden flex-shrink-0 transition-all duration-300"
-          >
-            <img
-              src="/cards/Deck.png"
-              alt="Card Back"
-              className="w-full h-full object-contain pointer-events-none select-none"
-            />
+          <div key={idx} style={outerStyle} className="relative flex-shrink-0">
+            <div
+              className="w-full h-full rounded-[6px] border-2 border-[#0f172a] shadow-[1px_2px_4px_rgba(0,0,0,0.18)] bg-white overflow-hidden transition-all duration-300"
+              style={{
+                WebkitBoxReflect: 'below 1px linear-gradient(transparent 75%, rgba(255, 255, 255, 0.12))',
+              }}
+            >
+              <img
+                src="/cards/Deck.png"
+                alt="Card Back"
+                className="w-full h-full object-contain pointer-events-none select-none"
+              />
+            </div>
+            {isTopCard && cardCount > 15 && (
+              <div
+                className="absolute bg-brand-red border-2 border-[#0f172a] rounded-full flex items-center justify-center font-black text-white shadow-[2px_2px_0_#0f172a] z-50"
+                style={{
+                  width: isMobile ? '20px' : '28px',
+                  height: isMobile ? '20px' : '28px',
+                  fontSize: isMobile ? '9px' : '12px',
+                  top: isMobile ? '-8px' : '-12px',
+                  right: isMobile ? '-8px' : '-12px',
+                }}
+              >
+                +{cardCount - 15}
+              </div>
+            )}
           </div>
         );
       })}
-
-      {cardCount > 15 && (
-        <div
-          className="absolute bg-brand-red border-2 border-[#0f172a] rounded-full flex items-center justify-center font-black text-white shadow-[2px_2px_0_#0f172a] z-50 animate-pulse"
-          style={{
-            width: isMobile ? '20px' : '28px',
-            height: isMobile ? '20px' : '28px',
-            fontSize: isMobile ? '9px' : '12px',
-            top: '0px',
-            right: '0px',
-          }}
-        >
-          +{cardCount - 15}
-        </div>
-      )}
     </div>
   );
 }
@@ -1688,8 +1691,28 @@ function App() {
   const [lastPlayedCardKey, setLastPlayedCardKey] = useState<string | null>(null);
   const [pendingWildCard, setPendingWildCard] = useState<{ cardId: string; key: string } | null>(null);
   const lastWinnerRef = useRef<string | null>(null);
+  // Game notification banner state
+  const [gameNotification, setGameNotification] = useState<{ message: string; type: 'info' | 'success' | 'warning' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (gameNotification) {
+      const timer = setTimeout(() => {
+        setGameNotification(null);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [gameNotification]);
   // Tracks whether the current game was started as a CPU game (to skip lobby flash)
   const isCpuGameRef = useRef(false);
+
+  // Custom Alert / Confirm Modal State
+  const [activeModal, setActiveModal] = useState<{
+    type: 'alert' | 'confirm';
+    title?: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel?: () => void;
+  } | null>(null);
 
   useEffect(() => {
     if (room && room.winner) {
@@ -1792,12 +1815,20 @@ function App() {
   const handleStartGame = () => {
     if (!room?.roomId) return;
     if (room.players.length < 2) {
-      alert('Need at least 2 players to start the game.');
+      setActiveModal({
+        type: 'alert',
+        message: 'Need at least 2 players to start the game.',
+        onConfirm: () => setActiveModal(null)
+      });
       return;
     }
     const notReady = room.players.find((p: any) => p.id !== room.hostId && !p.isReady);
     if (notReady) {
-      alert(`Waiting for all players to ready up (e.g., ${notReady.name} is not ready).`);
+      setActiveModal({
+        type: 'alert',
+        message: `Waiting for all players to ready up (e.g., ${notReady.name} is not ready).`,
+        onConfirm: () => setActiveModal(null)
+      });
       return;
     }
     socket.emit('start_game', { roomId: room.roomId });
@@ -2038,11 +2069,23 @@ function App() {
     socket.on('uno_called', (data: any) => {
       console.log('Socket uno_called received:', data);
       playSoundEffect('uno', soundEnabledRef.current);
+      const currentRoom = roomRef.current;
+      const callerName = currentRoom?.players.find((p: any) => p.id === data.playerId)?.name || 'Someone';
+      setGameNotification({ message: `${callerName} called UNO! 📣`, type: 'info' });
     });
 
     socket.on('uno_caught', (data: any) => {
       console.log('Socket uno_caught received:', data);
       playSoundEffect('draw', soundEnabledRef.current);
+      const currentRoom = roomRef.current;
+      const targetName = currentRoom?.players.find((p: any) => p.id === data.caughtPlayerId)?.name || 'Someone';
+      const catcherName = currentRoom?.players.find((p: any) => p.id === data.caughtBy)?.name || 'Someone';
+      setGameNotification({ message: `${catcherName} caught ${targetName}! 🫵 ${targetName} draws 2 cards!`, type: 'warning' });
+    });
+
+    socket.on('uno_catch_failed', () => {
+      console.log('Socket uno_catch_failed received');
+      setGameNotification({ message: 'Catch failed! Opponent already called UNO or has more/fewer cards.', type: 'error' });
     });
 
     socket.on('challenge_resolved', (data: any) => {
@@ -2051,21 +2094,36 @@ function App() {
       if (!currentRoom) return;
 
       const challenger = currentRoom.players.find((p: any) => p.id === data.challengerId)?.name || 'Someone';
-      const playedByPlayer = currentRoom.players.find((p: any) => p.id === currentRoom.pendingChallenge?.playedBy)?.name || 'the opponent';
+      const playedById = data.playedBy || currentRoom.pendingChallenge?.playedBy;
+      const playedByPlayer = currentRoom.players.find((p: any) => p.id === playedById)?.name || 'the opponent';
 
       if (data.guilty) {
-        alert(`${challenger} successfully challenged ${playedByPlayer}! ${playedByPlayer} had a matching color and was forced to draw ${data.cardsDrawn} cards!`);
+        setGameNotification({
+          message: `${challenger} successfully challenged ${playedByPlayer}! ${playedByPlayer} draws ${data.cardsDrawn} cards! 🫵`,
+          type: 'success'
+        });
       } else if (data.guilty === false) {
-        alert(`${challenger} challenged ${playedByPlayer} but failed! ${challenger} had to draw ${data.cardsDrawn} cards and lost their turn!`);
+        setGameNotification({
+          message: `${challenger} challenged ${playedByPlayer} but failed! ${challenger} draws ${data.cardsDrawn} cards! ❌`,
+          type: 'error'
+        });
       } else if (data.accepted) {
-        console.log(`${challenger} accepted the penalty and drew ${data.cardsDrawn} cards.`);
+        setGameNotification({
+          message: `${challenger} accepted the penalty and drew ${data.cardsDrawn} cards. 🤝`,
+          type: 'info'
+        });
       }
     });
 
     socket.on('error', (err: any) => {
       console.error('Socket error event received:', err);
       setIsLoading(false);
-      alert(err.message || 'An error occurred');
+      setActiveModal({
+        type: 'alert',
+        title: 'Error',
+        message: err.message || 'An error occurred',
+        onConfirm: () => setActiveModal(null)
+      });
     });
 
     socket.on('reconnect_success', (data) => {
@@ -2087,7 +2145,12 @@ function App() {
       setRoom(null);
       setMyPlayerId('');
       setView('friends');
-      alert(data.message || 'Session expired or room no longer exists');
+      setActiveModal({
+        type: 'alert',
+        title: 'Reconnection Failed',
+        message: data.message || 'Session expired or room no longer exists',
+        onConfirm: () => setActiveModal(null)
+      });
     });
 
     socket.on('kicked', (data) => {
@@ -2100,7 +2163,12 @@ function App() {
       setRoom(null);
       setMyPlayerId('');
       setView('friends');
-      alert(data.message || 'You have been kicked by the host');
+      setActiveModal({
+        type: 'alert',
+        title: 'Kicked From Room',
+        message: data.message || 'You have been kicked by the host',
+        onConfirm: () => setActiveModal(null)
+      });
     });
 
     // Check for reconnection token on mount
@@ -2208,6 +2276,233 @@ function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Render Custom Alert/Confirm Modal
+  const renderModal = () => {
+    return (
+      <AnimatePresence>
+        {activeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full font-sans"
+            >
+              {/* Modal header/title if any */}
+              {activeModal.title && (
+                <div className={`border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a] -mt-10 mb-4 transform -rotate-1 flex items-center gap-2 ${
+                  activeModal.title.toLowerCase().includes('error') || 
+                  activeModal.title.toLowerCase().includes('kick') || 
+                  activeModal.title.toLowerCase().includes('fail')
+                    ? 'bg-brand-red text-white' 
+                    : activeModal.type === 'confirm'
+                      ? 'bg-brand-yellow text-[#0f172a]'
+                      : 'bg-brand-blue text-white'
+                }`}>
+                  {(activeModal.title.toLowerCase().includes('error') || 
+                    activeModal.title.toLowerCase().includes('kick') || 
+                    activeModal.title.toLowerCase().includes('fail')) && (
+                    <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
+                  )}
+                  <h3 className="font-black text-xs uppercase tracking-wider select-none">
+                    {activeModal.title}
+                  </h3>
+                </div>
+              )}
+
+              {/* Message */}
+              <p className="text-[#0f172a] font-bold text-center text-sm mb-6 mt-2 leading-relaxed">
+                {activeModal.message}
+              </p>
+
+              {/* Actions */}
+              <div className="flex gap-4 w-full justify-center">
+                {activeModal.type === 'confirm' ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (activeModal.onCancel) activeModal.onCancel();
+                        setActiveModal(null);
+                      }}
+                      className="px-4 py-2 border-2 border-[#0f172a] rounded-md bg-white hover:bg-neutral-100 text-[#0f172a] font-black text-xs uppercase tracking-wider cursor-pointer shadow-[2px_2px_0_#0f172a] transition-all duration-150 active:translate-y-[2px] active:shadow-[0px_0px_0_#0f172a]"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        activeModal.onConfirm();
+                      }}
+                      className="px-4 py-2 border-2 border-[#0f172a] rounded-md bg-brand-red hover:bg-red-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer shadow-[2px_2px_0_#0f172a] transition-all duration-150 active:translate-y-[2px] active:shadow-[0px_0px_0_#0f172a]"
+                    >
+                      Confirm
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      activeModal.onConfirm();
+                    }}
+                    className="px-6 py-2 border-2 border-[#0f172a] rounded-md bg-brand-blue hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider cursor-pointer shadow-[2px_2px_0_#0f172a] transition-all duration-150 active:translate-y-[2px] active:shadow-[0px_0px_0_#0f172a]"
+                  >
+                    OK
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  };
+
+  // Render Rule Book Modal
+  const renderRuleBookModal = () => {
+    if (!isRuleBookOpen) return null;
+    const isFlipMode = room?.gameMode === 'flip';
+    return (
+      <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm pointer-events-auto">
+        <div className="relative w-full max-w-xl bg-white border-3 border-[#0f172a] rounded-[20px] shadow-[8px_8px_0_#0f172a] flex flex-col max-h-[80vh]">
+          {/* Modal Header */}
+          <div className="bg-brand-red border-b-3 border-[#0f172a] px-6 py-4 rounded-t-[17px] flex items-center justify-between">
+            <h3 className="text-white font-black text-sm sm:text-base tracking-wider uppercase">
+              {isFlipMode ? 'UNO FLIP™ Official Rules' : 'UNO Classic Official Rules'}
+            </h3>
+            <button
+              onClick={() => setIsRuleBookOpen(false)}
+              className="px-3 py-1.5 border-2 border-[#0f172a] rounded-md bg-white hover:bg-brand-yellow hover:text-[#0f172a] font-black text-[10px] uppercase tracking-wider cursor-pointer shadow-[2px_2px_0_#0f172a] transition-all duration-150 active:scale-95"
+            >
+              Close
+            </button>
+          </div>
+
+          {/* Modal Content */}
+          <div className="pl-6 py-6 pr-3 overflow-y-auto custom-scrollbar text-left text-xs text-[#0f172a] font-sans flex-1 space-y-4">
+            {isFlipMode ? (
+              <>
+                <div className="border-2 border-[#0f172a] p-3 rounded-lg bg-brand-yellow/10">
+                  <span className="font-extrabold uppercase text-[#0f172a] block mb-1">
+                    UNO FLIP™ IN A NUTSHELL
+                  </span>
+                  <p className="leading-relaxed">
+                    UNO FLIP™ plays like regular UNO®, except there are two sides to the deck of cards: a <strong>Light Side</strong> (white border) and a <strong>Dark Side</strong> (black border). You start playing with the Light Side, but whenever someone plays a FLIP card, the entire deck is flipped over (as are the cards in your hand) and now everyone must play off of the Dark Side of the cards.
+                  </p>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    LET'S PLAY
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Match the top card of the discard pile by color, number, or symbol.</li>
+                    <li>If you do not have a matching card, draw one card from the draw pile. If playable, you can play it immediately.</li>
+                    <li>When adding cards to your hand, ensure they face the same direction as your hand's active side.</li>
+                    <li><strong>Yell "UNO"</strong> when you have exactly 1 card remaining in hand!</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    LIGHT SIDE ACTIONS (White Border)
+                  </span>
+                  <ul className="space-y-1.5">
+                    <li><strong>Draw One:</strong> Next player draws 1 card and loses their turn.</li>
+                    <li><strong>Reverse:</strong> Reverses play direction.</li>
+                    <li><strong>Skip:</strong> Skips next player's turn.</li>
+                    <li><strong>Wild Card:</strong> Choose the active color that continues play.</li>
+                    <li><strong>Wild Draw Two:</strong> Choose color; next player draws 2 cards and loses their turn. Only playable if you have no matching colors.</li>
+                    <li><strong>Flip Card:</strong> Flips all cards (hand, draw, discard) to the Dark Side.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    DARK SIDE ACTIONS (Black Border)
+                  </span>
+                  <ul className="space-y-1.5">
+                    <li><strong>Draw Five:</strong> Next player draws 5 cards and loses their turn.</li>
+                    <li><strong>Reverse:</strong> Reverses play direction.</li>
+                    <li><strong>Skip Everyone:</strong> Skips all players. The player who laid it gets another turn.</li>
+                    <li><strong>Wild Card:</strong> Choose the active color that continues play.</li>
+                    <li><strong>Wild Draw Color:</strong> Choose color; next player draws until they get the chosen color (regardless of count) and loses their turn.</li>
+                    <li><strong>Flip Card:</strong> Flips all cards back to the Light Side.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    SCORING (Based on Ending Side)
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 font-mono">
+                    <div>Number Cards (1-9): Face Value</div>
+                    <div>Draw One: 10 pts</div>
+                    <div>Draw Five: 20 pts</div>
+                    <div>Reverse/Skip/Flip: 20 pts</div>
+                    <div>Skip Everyone: 30 pts</div>
+                    <div>Wild Card: 40 pts</div>
+                    <div>Wild Draw Two: 50 pts</div>
+                    <div>Wild Draw Color: 60 pts</div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="border-2 border-[#0f172a] p-3 rounded-lg bg-brand-blue/10">
+                  <span className="font-extrabold uppercase text-[#0f172a] block mb-1">
+                    UNO CLASSIC IN A NUTSHELL
+                  </span>
+                  <p className="leading-relaxed">
+                    UNO Classic is the classic card-matching game. The objective is to be the first player to discard all cards in your hand in each round. Score points based on the cards remaining in your opponents' hands. First player to reach 500 points wins the game.
+                  </p>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    HOW TO PLAY
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Match the top card of the discard pile by color, number, or action symbol.</li>
+                    <li>If you do not have a matching card, draw one card from the draw pile. Play it if possible, otherwise pass.</li>
+                    <li><strong>Yell "UNO"</strong> when you have exactly 1 card remaining in hand!</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    ACTION CARDS
+                  </span>
+                  <ul className="space-y-1.5">
+                    <li><strong>Draw Two (+2):</strong> Next player draws 2 cards and loses their turn.</li>
+                    <li><strong>Reverse:</strong> Reverses play direction.</li>
+                    <li><strong>Skip:</strong> Skips next player's turn.</li>
+                    <li><strong>Wild Card:</strong> Choose the active color that continues play.</li>
+                    <li><strong>Wild Draw Four (+4):</strong> Choose color; next player draws 4 cards and loses their turn. Only playable if you have no matching colors.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    SCORING
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 font-mono">
+                    <div>Number Cards (0-9): Face Value</div>
+                    <div>Draw Two / Skip / Reverse: 20 pts</div>
+                    <div>Wild / Wild Draw Four: 50 pts</div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (view === 'friends') {
     return (
@@ -2394,6 +2689,7 @@ function App() {
             </button>
           </div>
         </div>
+        {renderModal()}
       </div>
     );
   }
@@ -2408,35 +2704,38 @@ function App() {
     const BOT_BG_COLORS = ['cc3333', '0956bf', '379711', '8338ec', 'e67e22', '1abc9c', 'c0392b', '2980b9'];
 
     return (
-      <CpuLobbyView
-        avatarOffset={avatarOffset}
-        onNextAvatar={handleNextAvatar}
-        avatarDataUri={avatarDataUri}
-        isLoading={isLoading}
-        allBotNames={ALL_BOT_NAMES}
-        botBgColors={BOT_BG_COLORS}
-        onBack={() => setView('main')}
-        onStart={(cpuPlayerName: string, cpuGameMode: 'classic' | 'flip', cpuBots: any[], cpuAvatarSeed: string) => {
-          try { localStorage.removeItem('uno_reconnect_token'); } catch (_) { }
-          isCpuGameRef.current = true;
-          setIsLoading(true);
-          const doStart = () => {
-            socket.emit('create_bot_room', {
-              playerName: cpuPlayerName,
-              gameMode: cpuGameMode,
-              avatarSeed: cpuAvatarSeed,
-              bots: cpuBots
-            });
-          };
-          if (socket.connected) {
-            doStart();
-          } else {
-            socket.disconnect();
-            socket.once('connect', doStart);
-            socket.connect();
-          }
-        }}
-      />
+      <>
+        <CpuLobbyView
+          avatarOffset={avatarOffset}
+          onNextAvatar={handleNextAvatar}
+          avatarDataUri={avatarDataUri}
+          isLoading={isLoading}
+          allBotNames={ALL_BOT_NAMES}
+          botBgColors={BOT_BG_COLORS}
+          onBack={() => setView('main')}
+          onStart={(cpuPlayerName: string, cpuGameMode: 'classic' | 'flip', cpuBots: any[], cpuAvatarSeed: string) => {
+            try { localStorage.removeItem('uno_reconnect_token'); } catch (_) { }
+            isCpuGameRef.current = true;
+            setIsLoading(true);
+            const doStart = () => {
+              socket.emit('create_bot_room', {
+                playerName: cpuPlayerName,
+                gameMode: cpuGameMode,
+                avatarSeed: cpuAvatarSeed,
+                bots: cpuBots
+              });
+            };
+            if (socket.connected) {
+              doStart();
+            } else {
+              socket.disconnect();
+              socket.once('connect', doStart);
+              socket.connect();
+            }
+          }}
+        />
+        {renderModal()}
+      </>
     );
   }
 
@@ -2637,143 +2936,8 @@ function App() {
           </div>
         </div>
 
-        {/* English Rule Book Modal */}
-        {isRuleBookOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div className="relative w-full max-w-xl bg-white border-3 border-[#0f172a] rounded-[20px] shadow-[8px_8px_0_#0f172a] flex flex-col max-h-[80vh]">
-              {/* Modal Header */}
-              <div className="bg-brand-red border-b-3 border-[#0f172a] px-6 py-4 rounded-t-[17px] flex items-center justify-between">
-                <h3 className="text-white font-black text-sm sm:text-base tracking-wider uppercase">
-                  {room.gameMode === 'flip' ? 'UNO FLIP™ Official Rules' : 'UNO Classic Official Rules'}
-                </h3>
-                <button
-                  onClick={() => setIsRuleBookOpen(false)}
-                  className="px-3 py-1.5 border-2 border-[#0f172a] rounded-md bg-white hover:bg-brand-yellow hover:text-[#0f172a] font-black text-[10px] uppercase tracking-wider cursor-pointer shadow-[2px_2px_0_#0f172a] transition-all duration-150 active:scale-95"
-                >
-                  Close
-                </button>
-              </div>
-
-              {/* Modal Content */}
-              <div className="pl-6 py-6 pr-3 overflow-y-auto custom-scrollbar text-left text-xs text-[#0f172a] font-sans flex-1 space-y-4">
-                {room.gameMode === 'flip' ? (
-                  <>
-                    <div className="border-2 border-[#0f172a] p-3 rounded-lg bg-brand-yellow/10">
-                      <span className="font-extrabold uppercase text-[#0f172a] block mb-1">
-                        UNO FLIP™ IN A NUTSHELL
-                      </span>
-                      <p className="leading-relaxed">
-                        UNO FLIP™ plays like regular UNO®, except there are two sides to the deck of cards: a <strong>Light Side</strong> (white border) and a <strong>Dark Side</strong> (black border). You start playing with the Light Side, but whenever someone plays a FLIP card, the entire deck is flipped over (as are the cards in your hand) and now everyone must play off of the Dark Side of the cards.
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
-                        LET'S PLAY
-                      </span>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>Match the top card of the discard pile by color, number, or symbol.</li>
-                        <li>If you do not have a matching card, draw one card from the draw pile. If playable, you can play it immediately.</li>
-                        <li>When adding cards to your hand, ensure they face the same direction as your hand's active side.</li>
-                        <li><strong>Yell "UNO"</strong> when you have exactly 1 card remaining in hand!</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
-                        LIGHT SIDE ACTIONS (White Border)
-                      </span>
-                      <ul className="space-y-1.5">
-                        <li><strong>Draw One:</strong> Next player draws 1 card and loses their turn.</li>
-                        <li><strong>Reverse:</strong> Reverses play direction.</li>
-                        <li><strong>Skip:</strong> Skips next player's turn.</li>
-                        <li><strong>Wild Card:</strong> Choose the active color that continues play.</li>
-                        <li><strong>Wild Draw Two:</strong> Choose color; next player draws 2 cards and loses their turn. Only playable if you have no matching colors.</li>
-                        <li><strong>Flip Card:</strong> Flips all cards (hand, draw, discard) to the Dark Side.</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
-                        DARK SIDE ACTIONS (Black Border)
-                      </span>
-                      <ul className="space-y-1.5">
-                        <li><strong>Draw Five:</strong> Next player draws 5 cards and loses their turn.</li>
-                        <li><strong>Reverse:</strong> Reverses play direction.</li>
-                        <li><strong>Skip Everyone:</strong> Skips all players. The player who laid it gets another turn.</li>
-                        <li><strong>Wild Card:</strong> Choose the active color that continues play.</li>
-                        <li><strong>Wild Draw Color:</strong> Choose color; next player draws until they get the chosen color (regardless of count) and loses their turn.</li>
-                        <li><strong>Flip Card:</strong> Flips all cards back to the Light Side.</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
-                        SCORING (Based on Ending Side)
-                      </span>
-                      <div className="grid grid-cols-2 gap-2 font-mono">
-                        <div>Number Cards (1-9): Face Value</div>
-                        <div>Draw One: 10 pts</div>
-                        <div>Draw Five: 20 pts</div>
-                        <div>Reverse/Skip/Flip: 20 pts</div>
-                        <div>Skip Everyone: 30 pts</div>
-                        <div>Wild Card: 40 pts</div>
-                        <div>Wild Draw Two: 50 pts</div>
-                        <div>Wild Draw Color: 60 pts</div>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="border-2 border-[#0f172a] p-3 rounded-lg bg-brand-blue/10">
-                      <span className="font-extrabold uppercase text-[#0f172a] block mb-1">
-                        UNO CLASSIC IN A NUTSHELL
-                      </span>
-                      <p className="leading-relaxed">
-                        UNO Classic is the classic card-matching game. The objective is to be the first player to discard all cards in your hand in each round. Score points based on the cards remaining in your opponents' hands. First player to reach 500 points wins the game.
-                      </p>
-                    </div>
-
-                    <div>
-                      <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
-                        HOW TO PLAY
-                      </span>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>Match the top card of the discard pile by color, number, or action symbol.</li>
-                        <li>If you do not have a matching card, draw one card from the draw pile. Play it if possible, otherwise pass.</li>
-                        <li><strong>Yell "UNO"</strong> when you have exactly 1 card remaining in hand!</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
-                        ACTION CARDS
-                      </span>
-                      <ul className="space-y-1.5">
-                        <li><strong>Draw Two (+2):</strong> Next player draws 2 cards and loses their turn.</li>
-                        <li><strong>Reverse:</strong> Reverses play direction.</li>
-                        <li><strong>Skip:</strong> Skips next player's turn.</li>
-                        <li><strong>Wild Card:</strong> Choose the active color that continues play.</li>
-                        <li><strong>Wild Draw Four (+4):</strong> Choose color; next player draws 4 cards and loses their turn. Only playable if you have no matching colors.</li>
-                      </ul>
-                    </div>
-
-                    <div>
-                      <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
-                        SCORING
-                      </span>
-                      <div className="grid grid-cols-2 gap-2 font-mono">
-                        <div>Number Cards (0-9): Face Value</div>
-                        <div>Draw Two / Skip / Reverse: 20 pts</div>
-                        <div>Wild / Wild Draw Four: 50 pts</div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        {renderRuleBookModal()}
+        {renderModal()}
       </div>
     );
   }
@@ -2827,6 +2991,33 @@ function App() {
           className={`h-screen w-screen relative overflow-hidden font-sans select-none flex flex-col items-center justify-end transition-colors duration-500 ${isVeryShort ? 'pb-4' : (isShort ? 'pb-8' : 'pb-16')}`}
         >
           <BetaPill />
+
+          {/* Transient Notification Banner */}
+          <AnimatePresence>
+            {gameNotification && (
+              <motion.div
+                initial={{ opacity: 0, y: -50, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.9 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="absolute top-6 left-1/2 -translate-x-1/2 z-[400] max-w-sm w-full px-4"
+              >
+                <div
+                  className={`border-3 border-[#0f172a] rounded-[16px] p-4 shadow-[4px_4px_0_#0f172a] text-center font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 select-none ${
+                    gameNotification.type === 'info'
+                      ? 'bg-[#ecd407] text-[#0f172a]'
+                      : gameNotification.type === 'warning'
+                      ? 'bg-[#ec4899] text-white'
+                      : gameNotification.type === 'error'
+                      ? 'bg-[#cc3333] text-white'
+                      : 'bg-white text-[#0f172a]'
+                  }`}
+                >
+                  <span>{gameNotification.message}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Opponents Avatars and Cards */}
           {opponents.map((opp, idx) => {
@@ -2937,6 +3128,70 @@ function App() {
             />
           </div>
 
+          {/* UNO and Catch UNO Action Panel (Bottom Right) */}
+          <div
+            className="absolute z-[250] flex flex-col items-end gap-3 transition-all duration-300 pointer-events-auto"
+            style={{
+              right: isVeryShort ? '16px' : (isShort ? '24px' : '32px'),
+              bottom: isVeryShort ? '16px' : (isShort ? '24px' : '32px'),
+              transform: isVeryShort ? 'scale(0.7)' : (isShort ? 'scale(0.85)' : 'scale(1.0)'),
+              transformOrigin: 'bottom right'
+            }}
+          >
+            <AnimatePresence>
+              {room.unoCatchablePlayerId && room.unoCatchablePlayerId !== myPlayerId && (
+                <motion.button
+                  initial={{ scale: 0, rotate: -15, y: 15 }}
+                  animate={{ scale: 1, rotate: 0, y: 0 }}
+                  exit={{ scale: 0, rotate: -15, y: 15 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+                  onClick={() => {
+                    socket.emit('catch_uno', { roomId: room.roomId });
+                  }}
+                  className="btn-3d w-44"
+                >
+                  <span className="btn-3d-shadow" />
+                  <span className="btn-3d-edge" style={{ 
+                    background: 'linear-gradient(to left, #7c2d12 0%, #ea580c 8%, #ea580c 92%, #7c2d12 100%)' 
+                  }} />
+                  <div className="btn-3d-front px-4 flex items-center justify-center gap-2 font-black select-none uppercase tracking-wider text-xs border-3 border-[#0f172a] text-white bg-orange-600 h-12 shadow-inner animate-pulse">
+                    <Zap className="w-4 h-4" />
+                    <span>Caught!</span>
+                  </div>
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            <button
+              onClick={() => {
+                socket.emit('call_uno', { roomId: room.roomId });
+              }}
+              disabled={room.unoStates[myPlayerId] || hand.length > 2}
+              className={`btn-3d w-44 transition-all ${room.unoStates[myPlayerId] || hand.length > 2 ? 'opacity-50 cursor-not-allowed filter grayscale' : ''}`}
+            >
+              <span className="btn-3d-shadow" />
+              {room.unoStates[myPlayerId] ? (
+                <>
+                  <span className="btn-3d-edge" style={{ 
+                    background: 'linear-gradient(to left, #14532d 0%, #166534 8%, #166534 92%, #14532d 100%)' 
+                  }} />
+                  <div className="btn-3d-front flex items-center justify-center gap-2 font-black select-none uppercase tracking-widest text-xs border-3 border-[#0f172a] text-white bg-[#166534] h-12">
+                    <Check className="w-4 h-4" />
+                    <span>UNO Called</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="btn-3d-edge btn-3d-edge-red" />
+                  <div className="btn-3d-front btn-3d-front-red flex items-center justify-center gap-2 font-black select-none uppercase tracking-widest text-xs border-3 border-[#0f172a] text-white h-12">
+                    <Megaphone className="w-4 h-4" />
+                    <span>UNO!</span>
+                  </div>
+                </>
+              )}
+            </button>
+          </div>
+
           {/* Settings button in the top-right */}
           <div
             className="absolute z-50 transition-all duration-300"
@@ -3011,9 +3266,16 @@ function App() {
                     <button
                       onClick={() => {
                         setIsSettingsOpen(false);
-                        if (confirm("Are you sure you want to leave the game?")) {
-                          handleLeaveLobby();
-                        }
+                        setActiveModal({
+                          type: 'confirm',
+                          title: 'Leave Game?',
+                          message: 'Are you sure you want to leave the game?',
+                          onConfirm: () => {
+                            handleLeaveLobby();
+                            setActiveModal(null);
+                          },
+                          onCancel: () => setActiveModal(null)
+                        });
                       }}
                       className="flex items-center gap-2.5 px-3 py-2 text-left text-xs font-bold text-white bg-brand-red hover:bg-red-700 rounded-[8px] transition-colors border border-[#0f172a] cursor-pointer shadow-[2px_2px_0_#0f172a] active:scale-95 animate-pulse"
                     >
@@ -3102,7 +3364,7 @@ function App() {
           {/* Wild Color Selection Modal */}
           <AnimatePresence>
             {pendingWildCard && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -3161,7 +3423,7 @@ function App() {
           {/* Challenge Wild Draw Modal */}
           <AnimatePresence>
             {room?.pendingChallenge && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -3329,9 +3591,16 @@ function App() {
 
                     <button
                       onClick={() => {
-                        if (confirm("Are you sure you want to leave this game room?")) {
-                          handleLeaveLobby();
-                        }
+                        setActiveModal({
+                          type: 'confirm',
+                          title: 'Leave Room?',
+                          message: 'Are you sure you want to leave this game room?',
+                          onConfirm: () => {
+                            handleLeaveLobby();
+                            setActiveModal(null);
+                          },
+                          onCancel: () => setActiveModal(null)
+                        });
                       }}
                       className="btn-3d w-full"
                     >
@@ -3347,41 +3616,10 @@ function App() {
             )}
           </AnimatePresence>
 
+          {renderModal()}
+          {renderRuleBookModal()}
         </div>
       </LayoutGroup>
-    );
-  }
-
-  if (view === 'computer') {
-    return (
-      <div className="min-h-[100dvh] bg-neutral-bg text-neutral-text flex flex-col items-center justify-center py-10 px-4 sm:px-6 font-sans">
-        <BetaPill />
-        <div className="max-w-md w-full">
-          {/* Panel with 20px radius in matching brutalist style */}
-          <div className="relative bg-neutral-card border-3 border-[#0f172a] rounded-[20px] pt-12 pb-8 px-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center w-full min-h-[200px]">
-
-            {/* Pill Header sitting on the top border */}
-            <div className="absolute left-6 -top-5.5 bg-brand-red border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a]">
-              <h2 className="text-white font-black text-xs tracking-wider uppercase select-none">
-                Play with Computer
-              </h2>
-            </div>
-
-            {/* Back Button integrated symmetrically on the top-right border */}
-            <button
-              onClick={() => {
-                setNameError(false);
-                setView('main');
-              }}
-              title="Back to Main Menu"
-              className="absolute right-6 -top-5.5 bg-neutral-card hover:bg-brand-red hover:text-white text-[#0f172a] border-2 border-[#0f172a] px-3.5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a] transition-all duration-180 ease-in-out cursor-pointer flex items-center gap-1.5"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="font-bold text-xs tracking-wider uppercase select-none">Back</span>
-            </button>
-          </div>
-        </div>
-      </div>
     );
   }
 
@@ -3440,6 +3678,7 @@ function App() {
           </button>
         </div>
       </div>
+      {renderModal()}
     </div>
   );
 }

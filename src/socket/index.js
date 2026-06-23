@@ -262,8 +262,16 @@ export function scheduleBotTurn(io, roomId) {
         }
       } else if (decision.action === 'accept_challenge') {
         try {
-          resolveChallenge(currentRoom, activePlayer.id, false);
+          const challenge = currentRoom.pendingChallenge;
+          const outcome = resolveChallenge(currentRoom, activePlayer.id, false);
           currentRoom.turnStartedAt = Date.now();
+          io.to(roomId).emit('challenge_resolved', {
+            challengerId: activePlayer.id,
+            wantsToChallenge: false,
+            playedBy: challenge?.playedBy,
+            targetPlayerId: challenge?.targetPlayerId,
+            ...outcome
+          });
         } catch (err) {
           logToFile(`Bot challenge error: ${err.message}`);
         }
@@ -807,6 +815,7 @@ export function registerSocketHandlers(io, socket) {
       const room = getRoom(roomId);
       if (!room) return sendError('Room not found');
 
+      const challenge = room.pendingChallenge;
       const outcome = resolveChallenge(room, session.playerId, wantsToChallenge);
       room.turnStartedAt = Date.now();
       
@@ -814,6 +823,8 @@ export function registerSocketHandlers(io, socket) {
       io.to(room.roomId).emit('challenge_resolved', {
         challengerId: session.playerId,
         wantsToChallenge,
+        playedBy: challenge?.playedBy,
+        targetPlayerId: challenge?.targetPlayerId,
         ...outcome
       });
 
