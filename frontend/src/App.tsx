@@ -273,6 +273,65 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false }: GameP
   );
 }
 
+interface OpponentCardFanProps {
+  cardCount: number;
+  direction: 'left' | 'right' | 'down';
+}
+
+function OpponentCardFan({ cardCount, direction }: OpponentCardFanProps) {
+  const visibleCards = Math.min(cardCount, 4);
+  if (visibleCards <= 0) return null;
+
+  return (
+    <div className={`relative ${direction === 'down' ? 'flex flex-row justify-center h-12 w-24' : 'flex flex-col justify-center w-16 h-12'}`}>
+      {Array.from({ length: visibleCards }).map((_, idx) => {
+        let style: React.CSSProperties = {};
+        const offset = idx - (visibleCards - 1) / 2;
+        
+        if (direction === 'right') {
+          style = {
+            transform: `translateX(${idx * 12}px) rotate(${offset * 8}deg)`,
+            zIndex: idx,
+            position: 'absolute',
+            left: '0px',
+            transformOrigin: 'bottom center'
+          };
+        } else if (direction === 'left') {
+          style = {
+            transform: `translateX(${-idx * 12}px) rotate(${offset * -8}deg)`,
+            zIndex: idx,
+            position: 'absolute',
+            right: '0px',
+            transformOrigin: 'bottom center'
+          };
+        } else {
+          style = {
+            transform: `translateX(${offset * 12}px) translateY(${idx * 3}px) rotate(${offset * 8}deg)`,
+            zIndex: idx,
+            position: 'absolute',
+            left: 'calc(50% - 14px)',
+            transformOrigin: 'top center'
+          };
+        }
+
+        return (
+          <div
+            key={idx}
+            style={style}
+            className="w-7 h-10 sm:w-8 sm:h-12 rounded-[4px] border-2 border-[#0f172a] shadow-[1px_1.5px_0_#0f172a] bg-white overflow-hidden flex-shrink-0 transition-transform duration-300"
+          >
+            <img 
+              src="/cards/Deck.png" 
+              alt="Card Back" 
+              className="w-full h-full object-contain pointer-events-none select-none" 
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 interface ParsedCard {
   cardId: string;
   face: string;
@@ -1944,9 +2003,81 @@ function App() {
     const player = myPlayer || room.players[0];
     const hand = Array.isArray(player?.hand) ? player.hand : [];
 
+    const opponents = (() => {
+      if (!room || !room.players || !myPlayerId) return [];
+      const myIndex = room.players.findIndex((p: any) => p.id === myPlayerId);
+      if (myIndex === -1) return [];
+
+      const list = [];
+      const len = room.players.length;
+      for (let i = 1; i < len; i++) {
+        const idx = (myIndex + i) % len;
+        list.push(room.players[idx]);
+      }
+      return list;
+    })();
+
     return (
       <LayoutGroup>
         <div className="h-screen w-screen bg-white relative overflow-hidden font-sans select-none flex flex-col items-center justify-end pb-16">
+
+
+
+        {/* Opponents Avatars and Cards */}
+        {opponents.map((opp, idx) => {
+          let positionClass = '';
+          let fanDirection: 'left' | 'right' | 'down' = 'down';
+          let layoutClass = 'flex flex-col items-center';
+
+          if (opponents.length === 1) {
+            // 1 Opponent: Top Center
+            positionClass = 'absolute top-6 left-1/2 -translate-x-1/2 z-30';
+            fanDirection = 'down';
+            layoutClass = 'flex flex-col items-center';
+          } else if (opponents.length === 2) {
+            // 2 Opponents: Left Center, Right Center
+            if (idx === 0) {
+              positionClass = 'absolute left-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
+              fanDirection = 'right';
+              layoutClass = 'flex items-center gap-4';
+            } else {
+              positionClass = 'absolute right-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
+              fanDirection = 'left';
+              layoutClass = 'flex items-center gap-4 flex-row-reverse';
+            }
+          } else {
+            // 3 Opponents: Left, Top, Right
+            if (idx === 0) {
+              positionClass = 'absolute left-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
+              fanDirection = 'right';
+              layoutClass = 'flex items-center gap-4';
+            } else if (idx === 1) {
+              positionClass = 'absolute top-6 left-1/2 -translate-x-1/2 z-30';
+              fanDirection = 'down';
+              layoutClass = 'flex flex-col items-center';
+            } else {
+              positionClass = 'absolute right-6 top-[35%] sm:top-[40%] -translate-y-1/2 z-30';
+              fanDirection = 'left';
+              layoutClass = 'flex items-center gap-4 flex-row-reverse';
+            }
+          }
+
+          return (
+            <div key={opp.id} className={positionClass}>
+              <div className={layoutClass}>
+                <GamePlayerAvatar
+                  name={opp.name}
+                  avatarSeed={opp.avatarSeed || opp.name}
+                  cardCount={opp.handCardCount || 0}
+                  isTurn={room.players[room.currentTurn]?.id === opp.id}
+                />
+                <div className={fanDirection === 'down' ? 'h-10 w-24 relative mt-2 flex justify-center' : 'w-16 h-12 relative flex items-center justify-center'}>
+                  <OpponentCardFan cardCount={opp.handCardCount || 0} direction={fanDirection} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
         
         {/* Active Player Avatar Badge (Bottom Left) */}
         <div className="absolute left-6 bottom-6 sm:left-10 sm:bottom-10 z-[250]">
