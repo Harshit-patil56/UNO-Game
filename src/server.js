@@ -22,6 +22,14 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Uptime monitor endpoints (supporting both HEAD and GET)
+app.head('/head', (req, res) => {
+  res.status(200).end();
+});
+app.get('/head', (req, res) => {
+  res.status(200).json({ status: 'OK' });
+});
+
 // Fetch room details by ID (gameMode lookup)
 app.get('/rooms/:roomId', (req, res) => {
   const { roomId } = req.params;
