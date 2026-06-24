@@ -304,6 +304,21 @@ const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameM
   return '/cards/Deck.png';
 };
 
+const getPlayDirectionArrowColors = (activeColor: string) => {
+  const colorMap: Record<string, { stroke: string; glow: string }> = {
+    RED: { stroke: 'rgba(255, 107, 107, 0.65)', glow: '#ff6b6b' },
+    BLUE: { stroke: 'rgba(96, 165, 250, 0.65)', glow: '#60a5fa' },
+    GREEN: { stroke: 'rgba(74, 222, 128, 0.65)', glow: '#4ade80' },
+    YELLOW: { stroke: 'rgba(255, 250, 101, 0.65)', glow: '#fffa65' },
+    PINK: { stroke: 'rgba(244, 114, 182, 0.65)', glow: '#f472b6' },
+    TEAL: { stroke: 'rgba(94, 234, 212, 0.65)', glow: '#5eead4' },
+    ORANGE: { stroke: 'rgba(251, 146, 60, 0.65)', glow: '#fb923c' },
+    PURPLE: { stroke: 'rgba(192, 132, 252, 0.65)', glow: '#c084fc' },
+  };
+
+  return colorMap[activeColor?.toUpperCase()] || colorMap['GREEN'];
+};
+
 export function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'light', gameMode = 'classic', disabled = false, style }: UnoCardProps) {
   const assetUrl = useMemo(() => {
     if (isBack) {
@@ -581,9 +596,10 @@ interface OpponentCardFanProps {
   gameMode: 'classic' | 'flip';
   isShort?: boolean;
   isVeryShort?: boolean;
+  hand?: string[];
 }
 
-function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isShort = false, isVeryShort = false }: OpponentCardFanProps) {
+function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isShort = false, isVeryShort = false, hand }: OpponentCardFanProps) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
 
   useEffect(() => {
@@ -669,6 +685,11 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
 
         const isTopCard = idx === visibleCards - 1;
 
+        const cardId = (hand && hand[idx]) || null;
+        const assetUrl = cardId
+          ? getCardAssetUrl(cardId, side === 'light' ? 'dark' : 'light', gameMode)
+          : cardBackSrc;
+
         return (
           <div key={idx} style={outerStyle} className="relative flex-shrink-0">
             <div
@@ -679,8 +700,8 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
               }}
             >
               <img
-                src={cardBackSrc}
-                alt="Card Back"
+                src={assetUrl}
+                alt={cardId || 'Card Back'}
                 className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full pointer-events-none select-none object-contain'}
                 style={
                   gameMode === 'flip'
@@ -3270,6 +3291,7 @@ function App() {
                       gameMode={room.gameMode}
                       isShort={isShort}
                       isVeryShort={isVeryShort}
+                      hand={opp.hand}
                     />
                   </div>
                 </div>
@@ -3466,6 +3488,155 @@ function App() {
             }}
             className="absolute left-1/2 flex items-center justify-center gap-6 sm:gap-16 pointer-events-auto z-10 transition-all duration-300"
           >
+            {/* 3D Play Direction Arrow Indicators */}
+            <div
+              style={{
+                position: 'absolute',
+                width: '600px',
+                height: '600px',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%) rotateX(60deg)',
+                transformStyle: 'preserve-3d',
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
+            >
+              <motion.div
+                animate={{
+                  rotate: (room.direction || 1) === 1 ? 360 : -360,
+                }}
+                transition={{
+                  rotate: { repeat: Infinity, ease: 'linear', duration: 15 },
+                }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {(() => {
+                  const colors = getPlayDirectionArrowColors(room.currentColor || 'GREEN');
+                  const isClockwise = (room.direction || 1) === 1;
+
+                  const arrowData = isClockwise
+                    ? [
+                        {
+                          d: "M 393.8,38.1 A 315,315 0 0,1 661.9,306.2",
+                          points: "662,306 677,284 641,289",
+                          gradX1: 393.8, gradY1: 38.1, gradX2: 661.9, gradY2: 306.2
+                        },
+                        {
+                          d: "M 661.9,393.8 A 315,315 0 0,1 393.8,661.9",
+                          points: "394,662 416,677 411,641",
+                          gradX1: 661.9, gradY1: 393.8, gradX2: 393.8, gradY2: 661.9
+                        },
+                        {
+                          d: "M 306.2,661.9 A 315,315 0 0,1 38.1,393.8",
+                          points: "38,394 23,416 59,411",
+                          gradX1: 306.2, gradY1: 661.9, gradX2: 38.1, gradY2: 393.8
+                        },
+                        {
+                          d: "M 38.1,306.2 A 315,315 0 0,1 306.2,38.1",
+                          points: "306,38 284,23 289,59",
+                          gradX1: 38.1, gradY1: 306.2, gradX2: 306.2, gradY2: 38.1
+                        }
+                      ]
+                    : [
+                        {
+                          d: "M 661.9,306.2 A 315,315 0 0,0 393.8,38.1",
+                          points: "394,38 416,23 411,59",
+                          gradX1: 661.9, gradY1: 306.2, gradX2: 393.8, gradY2: 38.1
+                        },
+                        {
+                          d: "M 393.8,661.9 A 315,315 0 0,0 661.9,393.8",
+                          points: "662,394 677,416 641,411",
+                          gradX1: 393.8, gradY1: 661.9, gradX2: 661.9, gradY2: 393.8
+                        },
+                        {
+                          d: "M 38.1,393.8 A 315,315 0 0,0 306.2,661.9",
+                          points: "306,662 284,677 289,641",
+                          gradX1: 38.1, gradY1: 393.8, gradX2: 306.2, gradY2: 661.9
+                        },
+                        {
+                          d: "M 306.2,38.1 A 315,315 0 0,0 38.1,306.2",
+                          points: "38,306 23,284 59,289",
+                          gradX1: 306.2, gradY1: 38.1, gradX2: 38.1, gradY2: 306.2
+                        }
+                      ];
+
+                  return (
+                    <svg viewBox="0 0 700 700" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.4))' }}>
+                      <defs>
+                        {/* Glow filter for core */}
+                        <filter id="arrow-glow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feGaussianBlur stdDeviation="6" result="blur" />
+                          <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                          </feMerge>
+                        </filter>
+                        
+                        {/* Tail blur filter for "fire's end" tail */}
+                        <filter id="tail-blur" x="-30%" y="-30%" width="160%" height="160%">
+                          <feGaussianBlur stdDeviation="12" result="blur" />
+                        </filter>
+
+                        {/* Four quadrant gradients mapped to coordinates */}
+                        {arrowData.map((arrow, idx) => (
+                          <linearGradient
+                            key={idx}
+                            id={`grad-${idx}`}
+                            x1={arrow.gradX1}
+                            y1={arrow.gradY1}
+                            x2={arrow.gradX2}
+                            y2={arrow.gradY2}
+                            gradientUnits="userSpaceOnUse"
+                          >
+                            <stop offset="0%" stopColor={colors.glow} stopOpacity="0" />
+                            <stop offset="40%" stopColor={colors.glow} stopOpacity="0.25" />
+                            <stop offset="85%" stopColor={colors.glow} stopOpacity="0.8" />
+                            <stop offset="100%" stopColor={colors.glow} stopOpacity="1" />
+                          </linearGradient>
+                        ))}
+                      </defs>
+                      <g filter="url(#arrow-glow)">
+                        {arrowData.map((arrow, idx) => (
+                          <g key={idx}>
+                            {/* Blurred underlay tail glow (fires end tail) */}
+                            <path
+                              d={arrow.d}
+                              fill="none"
+                              stroke={`url(#grad-${idx})`}
+                              strokeWidth="28"
+                              strokeLinecap="round"
+                              filter="url(#tail-blur)"
+                              opacity="0.75"
+                            />
+                            {/* Main Core overlay (Thicker) */}
+                            <path
+                              d={arrow.d}
+                              fill="none"
+                              stroke={`url(#grad-${idx})`}
+                              strokeWidth="12"
+                              strokeLinecap="round"
+                            />
+                            {/* Arrowhead polygon (Pointed correctly) */}
+                            <polygon
+                              points={arrow.points}
+                              fill={colors.glow}
+                            />
+                          </g>
+                        ))}
+                      </g>
+                    </svg>
+                  );
+                })()}
+              </motion.div>
+            </div>
+
             {/* Draw Pile (Clickable to draw a card) */}
             <div
               onClick={() => socket.emit('draw_card', { roomId: room.roomId })}

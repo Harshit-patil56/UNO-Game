@@ -38,7 +38,7 @@ export function redactGameState(gameState, recipientPlayerId) {
       isReady: p.isReady,
       isDisconnected: p.isDisconnected,
       handCardCount: p.hand.length,
-      hand: p.id === recipientPlayerId ? [...p.hand] : p.hand.length
+      hand: (p.id === recipientPlayerId || gameState.gameMode === 'flip') ? [...p.hand] : p.hand.length
     }))
   };
 }
