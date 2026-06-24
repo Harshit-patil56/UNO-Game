@@ -378,3 +378,8 @@
   filter: brightness(1) saturate(1);
   transition: filter 0.4s ease;
 }
+
+/* Custom CSS-only hover tooltip for static Beta Pill */
+.beta-pill-container:hover .beta-pill-tooltip {
+  display: block !important;
+}

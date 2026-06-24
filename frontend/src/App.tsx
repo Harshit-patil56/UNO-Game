@@ -1462,7 +1462,7 @@ function BetaPill() {
             className="bg-white text-[#0f172a] border-2 border-[#0f172a] p-3 rounded-[8px] shadow-[3px_3px_0_#0f172a] max-w-[220px] text-left"
           >
             <p className="text-[10px] font-bold leading-normal">
-              The game is in beta. Some features might not work; they will come soon. There may be some bugs and glitches, so please bear with us!
+              The game is in beta. Some features might not work; they will come soon. There may be some bugs and glitches, so please bear with me!
             </p>
           </motion.div>
         )}
@@ -4103,16 +4103,16 @@ function App() {
               Are you ready to play the ultimate <strong>uno game</strong> online? Welcome to <strong>UNO With Friends</strong>, a completely browser-based, interactive web application where you can play <strong>online uno with friends free</strong> anytime, anywhere. Whether you want to test your strategy against advanced computer AI bots or gather your buddies for a classic match, this <strong>online uno</strong> experience provides the perfect digital playground. Best of all, it requires no downloads or registration, making it the premier platform for a <strong>free uno with friends</strong> session.
             </p>
             <p>
-              To get started with <strong>uno with friends online free</strong>, simply enter your name on the home screen, choose your game mode, and either create a private lobby or join an existing one using a 6-character room code. You can invite players instantly by sharing the direct invite link. If you’re playing solo, our smart CPU bots are ready to challenge you in a fast-paced game.
+              To get started with <strong>uno with friends online free</strong>, simply enter your name on the home screen, choose your game mode, and either create a private lobby or join an existing one using a 6-character room code. You can invite players instantly by sharing the direct invite link. If you’re playing solo, my smart CPU bots are ready to challenge you in a fast-paced game.
             </p>
             <p>
               The core gameplay follows the official <strong>uno rules</strong>. Each player starts with 7 cards, and the goal is to be the first to discard all cards in your hand. On your turn, you must match the top card of the discard pile by color, number, or symbol. If you don't have a matching card, you must draw from the deck. The excitement comes from action cards like the legendary <strong>uno reverse card</strong> (or <strong>reverse uno card</strong>) which changes the direction of play, Skip cards, and Wild cards. Remember: you must yell <strong>UNO</strong> when you have exactly one card left in your hand, or risk being caught by other players!
             </p>
             <p>
-              Our web application features two distinct game modes: Classic and <strong>uno flip</strong>. If you choose <strong>uno flip</strong>, you will play with a double-sided deck. The game starts on the Light Side, but the moment a Flip card is played, the deck, discard pile, and everyone's hands flip over to the Dark Side. The Dark Side introduces much more aggressive action cards and rules. To master this mode, you must learn the <strong>uno flip rules</strong>, which include cards like Draw Five (forcing the next player to draw five cards) and Skip Everyone (giving the player who laid it another turn immediately).
+              This web application features two distinct game modes: Classic and <strong>uno flip</strong>. If you choose <strong>uno flip</strong>, you will play with a double-sided deck. The game starts on the Light Side, but the moment a Flip card is played, the deck, discard pile, and everyone's hands flip over to the Dark Side. The Dark Side introduces much more aggressive action cards and rules. To master this mode, you must learn the <strong>uno flip rules</strong>, which include cards like Draw Five (forcing the next player to draw five cards) and Skip Everyone (giving the player who laid it another turn immediately).
             </p>
             <p>
-              While our app supports the classic game and the flip variant, the world of UNO has many exciting versions. Players often discuss <strong>uno no mercy</strong>, one of the most intense editions of the game. The <strong>uno no mercy rules</strong> are known for stacking draw cards (where +2 and +4 can accumulate), introducing Wild Draw 10 cards, and enforcing a mercy rule where players with 25 or more cards are instantly eliminated. While <strong>uno no mercy</strong> pushes players to the limit, playing <strong>uno flip</strong> on our platform offers a similarly dynamic shift in momentum that will test any veteran player's card game strategy.
+              While this app supports the classic game and the flip variant, the world of UNO has many exciting versions. Players often discuss <strong>uno no mercy</strong>, one of the most intense editions of the game. The <strong>uno no mercy rules</strong> are known for stacking draw cards (where +2 and +4 can accumulate), introducing Wild Draw 10 cards, and enforcing a mercy rule where players with 25 or more cards are instantly eliminated. While <strong>uno no mercy</strong> pushes players to the limit, playing <strong>uno flip</strong> on this platform offers a similarly dynamic shift in momentum that will test any veteran player's card game strategy.
             </p>
             <p>
               Join the fun today, play a quick game, master the <strong>uno reverse card</strong> timing, and experience the best <strong>uno online game</strong> with your friends for free!
