@@ -1449,7 +1449,7 @@ function BetaPill() {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
-        Beta 1.0
+        Beta 1.2
       </div>
 
       <AnimatePresence>
