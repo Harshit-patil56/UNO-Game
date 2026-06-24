@@ -319,6 +319,16 @@ const getPlayDirectionArrowColors = (activeColor: string) => {
   return colorMap[activeColor?.toUpperCase()] || colorMap['GREEN'];
 };
 
+export const FLIP_AR = 327 / 505; // Cropped aspect ratio: 327 / 505 ≈ 0.6475
+export const FLIP_CROP_STYLE = {
+  width: '102.44%',
+  height: '102.38%',
+  left: '-1.22%',
+  top: '-1.19%',
+  maxWidth: 'none',
+  maxHeight: 'none',
+};
+
 export function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'light', gameMode = 'classic', disabled = false, style }: UnoCardProps) {
   const assetUrl = useMemo(() => {
     if (isBack) {
@@ -327,10 +337,9 @@ export function UnoCard({ cardId, isBack = false, onClick, className = '', side 
     return getCardAssetUrl(cardId, side, gameMode);
   }, [cardId, isBack, side, gameMode]);
 
-  // Cropped aspect ratio is 300 / 482 ≈ 0.6224.
   // Standard card height is h-36 = 144px.
-  // flipWidth = 144 * (300 / 482) = 89.6 ≈ 90px.
-  const flipWidth = Math.round(144 * (300 / 482));
+  // flipWidth = 144 * FLIP_AR = 93.2px ≈ 93px.
+  const flipWidth = Math.round(144 * FLIP_AR);
 
   return (
     <motion.div
@@ -341,24 +350,17 @@ export function UnoCard({ cardId, isBack = false, onClick, className = '', side 
       }
       whileHover={disabled ? {} : { scale: 1.08, y: -16, zIndex: 60, transition: { type: 'spring', stiffness: 300, damping: 15 } }}
       onClick={disabled ? undefined : onClick}
-      className={`h-36 rounded-[12px] relative overflow-hidden select-none flex-shrink-0 cursor-pointer transition-shadow duration-200 ${gameMode === 'flip' ? 'shadow-[0_6px_18px_-2px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] hover:shadow-[0_12px_28px_-4px_rgba(0,0,0,0.65),0_4px_10px_rgba(0,0,0,0.4)]' : 'w-24 hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)]'} ${className} ${disabled ? 'opacity-85 cursor-not-allowed' : ''}`}
+      className={`h-36 rounded-[12px] relative overflow-hidden select-none flex-shrink-0 cursor-pointer transition-shadow duration-200 ${
+        gameMode === 'flip'
+          ? 'shadow-[0_6px_18px_-2px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] hover:shadow-[0_12px_28px_-4px_rgba(0,0,0,0.65),0_4px_10px_rgba(0,0,0,0.4)]'
+          : 'w-24 hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)]'
+      } ${className} ${disabled ? 'opacity-85 cursor-not-allowed' : ''}`}
     >
       <img
         src={assetUrl}
         alt={isBack ? 'Card Back' : cardId}
         className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full object-contain pointer-events-none'}
-        style={
-          gameMode === 'flip'
-            ? {
-                width: '111.30%',
-                height: '107.04%',
-                left: '-4.98%',
-                top: '-3.52%',
-                maxWidth: 'none',
-                maxHeight: 'none',
-              }
-            : {}
-        }
+        style={gameMode === 'flip' ? FLIP_CROP_STYLE : {}}
       />
     </motion.div>
   );
@@ -636,9 +638,9 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
     bottomOffset = isMobile ? 10 : 16;
   }
 
-  // For flip cards, correct width to match image's true cropped AR (300/482 ≈ 0.6224)
+  // For flip cards, correct width to match image's true cropped AR (FLIP_AR)
   if (gameMode === 'flip') {
-    cardW = Math.round(cardH * (300 / 482));
+    cardW = Math.round(cardH * FLIP_AR);
   }
 
   const defaultSpacing = isVeryShort ? (isMobile ? 8 : 12) : (isShort ? (isMobile ? 10 : 16) : (isMobile ? 14 : 22));
@@ -703,18 +705,7 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
                 src={assetUrl}
                 alt={cardId || 'Card Back'}
                 className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full pointer-events-none select-none object-contain'}
-                style={
-                  gameMode === 'flip'
-                    ? {
-                        width: '111.30%',
-                        height: '107.04%',
-                        left: '-4.98%',
-                        top: '-3.52%',
-                        maxWidth: 'none',
-                        maxHeight: 'none',
-                      }
-                    : {}
-                }
+                style={gameMode === 'flip' ? FLIP_CROP_STYLE : {}}
               />
             </div>
             {isTopCard && cardCount > 15 && (
@@ -944,7 +935,7 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
   }, [room?.discardPileTop, room?.discardPileSize, lastPlayedCardKey]);
 
   const targetH = isMobile ? 130 : 220;
-  const targetW = gameMode === 'flip' ? Math.round(targetH * (300 / 482)) : Math.round(targetH * 0.69);
+  const targetW = gameMode === 'flip' ? Math.round(targetH * FLIP_AR) : Math.round(targetH * 0.69);
 
   return (
     <div
@@ -1009,18 +1000,7 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
                 src={assetUrl}
                 alt={card.cardId}
                 className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full object-contain pointer-events-none select-none'}
-                style={
-                  gameMode === 'flip'
-                    ? {
-                        width: '111.30%',
-                        height: '107.04%',
-                        left: '-4.98%',
-                        top: '-3.52%',
-                        maxWidth: 'none',
-                        maxHeight: 'none',
-                      }
-                    : {}
-                }
+                style={gameMode === 'flip' ? FLIP_CROP_STYLE : {}}
               />
             </motion.div>
           );
@@ -1261,8 +1241,7 @@ function HandCanvas({
   } else if (isShort) {
     targetH = isMobile ? 110 : 160;
   }
-  // Cropped aspect ratio is 300 / 482 ≈ 0.6224.
-  const FLIP_AR = 300 / 482;
+  // Cropped aspect ratio is FLIP_AR.
   const targetW = gameMode === 'flip' ? Math.round(targetH * FLIP_AR) : Math.round(targetH * 0.69);
 
   let spacing = isMobile
@@ -1416,16 +1395,7 @@ function HandCanvas({
               className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full pointer-events-none select-none object-contain'}
               style={{
                 imageRendering: gameMode === 'flip' ? 'auto' : 'pixelated',
-                ...(gameMode === 'flip'
-                  ? {
-                      width: '111.30%',
-                      height: '107.04%',
-                      left: '-4.98%',
-                      top: '-3.52%',
-                      maxWidth: 'none',
-                      maxHeight: 'none',
-                    }
-                  : {}),
+                ...(gameMode === 'flip' ? FLIP_CROP_STYLE : {}),
               }}
               animate={{
                 opacity: isPlayable ? 1.0 : (isDragging ? 0.8 : (isHovered ? 0.65 : 0.45)),
@@ -3672,12 +3642,7 @@ function App() {
                   style={
                     room.gameMode === 'flip'
                       ? {
-                          width: '111.30%',
-                          height: '107.04%',
-                          left: '-4.98%',
-                          top: '-3.52%',
-                          maxWidth: 'none',
-                          maxHeight: 'none',
+                          ...FLIP_CROP_STYLE,
                           imageRendering: 'auto',
                         }
                       : {
