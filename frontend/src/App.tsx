@@ -2310,6 +2310,12 @@ function App() {
 
   useEffect(() => {
     try {
+      localStorage.setItem('uno_backend_url', BACKEND_URL);
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    try {
       localStorage.setItem('uno_avatar_offset', avatarOffset.toString());
     } catch (e) {
       console.warn('Failed to save avatar offset to localStorage:', e);

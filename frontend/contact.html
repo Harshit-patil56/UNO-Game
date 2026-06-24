@@ -64,6 +64,29 @@
         </form>
       </div>
     </div>
+    <!-- Custom Brutalist Modal Container -->
+    <div id="brutalistModal" class="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm hidden">
+      <div class="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 sm:p-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full select-none transform transition-transform scale-95 duration-200">
+        <!-- Title Header Pill -->
+        <div id="modalTitlePill" class="absolute left-6 -top-5.5 bg-[#0956bf] border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a]">
+          <h3 id="modalTitle" class="text-white font-black text-xs tracking-wider uppercase m-0 select-none">
+            Notification
+          </h3>
+        </div>
+        <!-- Modal Message -->
+        <p id="modalMessage" class="text-xs sm:text-sm font-bold text-neutral-muted text-center mt-4 mb-6 leading-relaxed">
+          Message contents here
+        </p>
+        <!-- Modal Action Button -->
+        <button id="modalCloseBtn" class="btn-3d w-full">
+          <span class="btn-3d-shadow"></span>
+          <span class="btn-3d-edge btn-3d-edge-blue"></span>
+          <div class="btn-3d-front btn-3d-front-blue flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-10">
+            OK
+          </div>
+        </button>
+      </div>
+    </div>
     <script>
       const form = document.getElementById('contactForm');
       const nameInput = document.getElementById('nameInput');
@@ -75,15 +98,80 @@
       const messageInput = document.getElementById('messageInput');
       const messageContainer = document.getElementById('messageContainer');
       const messageLabel = document.getElementById('messageLabel');
+
+      // Modal Elements
+      const modal = document.getElementById('brutalistModal');
+      const modalTitlePill = document.getElementById('modalTitlePill');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalMessage = document.getElementById('modalMessage');
+      const modalCloseBtn = document.getElementById('modalCloseBtn');
+      const modalCloseBtnEdge = modalCloseBtn.querySelector('.btn-3d-edge');
+      const modalCloseBtnFront = modalCloseBtn.querySelector('.btn-3d-front');
+      let modalCallback = null;
+
+      const showModal = (title, message, type = 'info', callback = null) => {
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        modalCallback = callback;
+
+        if (type === 'error') {
+          modalTitlePill.className = 'absolute left-6 -top-5.5 bg-[#cc3333] border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a]';
+          modalCloseBtnEdge.className = 'btn-3d-edge btn-3d-edge-red';
+          modalCloseBtnFront.className = 'btn-3d-front btn-3d-front-red flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-10';
+        } else if (type === 'success') {
+          modalTitlePill.className = 'absolute left-6 -top-5.5 bg-[#379711] border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a]';
+          modalCloseBtnEdge.className = 'btn-3d-edge btn-3d-edge-green';
+          modalCloseBtnFront.className = 'btn-3d-front btn-3d-front-green flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-10';
+        } else {
+          modalTitlePill.className = 'absolute left-6 -top-5.5 bg-[#0956bf] border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a]';
+          modalCloseBtnEdge.className = 'btn-3d-edge btn-3d-edge-blue';
+          modalCloseBtnFront.className = 'btn-3d-front btn-3d-front-blue flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-10';
+        }
+
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+          modal.firstElementChild.classList.remove('scale-95');
+          modal.firstElementChild.classList.add('scale-100');
+        }, 10);
+      };
+
+      modalCloseBtn.addEventListener('click', () => {
+        modal.firstElementChild.classList.remove('scale-100');
+        modal.firstElementChild.classList.add('scale-95');
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          if (modalCallback) {
+            modalCallback();
+          }
+        }, 150);
+      });
+
       const clearError = (input, container, label, originalLabelText, originalLabelBg) => {
         input.classList.remove('brutalist-input-error');
         container.classList.remove('animate-brutal-shake');
         label.textContent = originalLabelText;
         label.className = `brutalist-label ${originalLabelBg}`;
       };
+
       nameInput.addEventListener('input', () => clearError(nameInput, nameContainer, nameLabel, 'Name', 'bg-[#0956bf]'));
       emailInput.addEventListener('input', () => clearError(emailInput, emailContainer, emailLabel, 'Email', 'bg-[#379711]'));
       messageInput.addEventListener('input', () => clearError(messageInput, messageContainer, messageLabel, 'Message', 'bg-[#ecd407]'));
+
+      const getBackendUrl = () => {
+        let url = '';
+        try {
+          url = localStorage.getItem('uno_backend_url') || '';
+        } catch (_) {}
+        if (!url) {
+          if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            url = 'http://localhost:5000';
+          } else {
+            url = window.location.origin;
+          }
+        }
+        return url;
+      };
+
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         let hasError = false;
@@ -124,8 +212,39 @@
           hasError = true;
         }
         if (!hasError) {
-          alert('Feedback received! Thank you for playing.');
-          window.location.href = '/';
+          const backendUrl = getBackendUrl();
+          const submitBtn = form.querySelector('button[type="submit"]');
+          const submitBtnFront = submitBtn.querySelector('.btn-3d-front');
+          const originalText = submitBtnFront.textContent;
+          submitBtnFront.textContent = 'SENDING...';
+          submitBtn.disabled = true;
+
+          fetch(`${backendUrl}/api/contact`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              name: nameInput.value.trim(),
+              email: emailInput.value.trim(),
+              message: messageInput.value.trim()
+            })
+          })
+          .then(async (res) => {
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || 'Failed to send message');
+            }
+            showModal('Success', 'Feedback received! Thank you for playing.', 'success', () => {
+              window.location.href = '/';
+            });
+          })
+          .catch((err) => {
+            console.error('Error submitting form:', err);
+            showModal('Submission Error', err.message || 'Failed to send message. Please try again later.', 'error');
+            submitBtnFront.textContent = originalText;
+            submitBtn.disabled = false;
+          });
         }
       });
     </script>
