@@ -1766,7 +1766,7 @@ interface FaqItem {
 const FAQ_DATA: FaqItem[] = [
   {
     question: "How to play UNO?",
-    answer: "Play starts by matching the top card of the discard pile by color, number, or action symbol. If you cannot match, you must draw a card from the deck. The first player to discard all their cards wins the round. Remember to call 'UNO' when you are down to your last card!"
+    answer: "Play starts by matching the top card of the discard pile by color, number, or action symbol. If you cannot match, you must draw a card from the deck. Special action cards like Skip (miss the next player's turn), Reverse (change play direction), Draw Two (force the next player to draw 2 cards), and Wild cards add strategy to every round. The first player to discard all their cards wins the round. Remember to call 'UNO' when you are down to your last card — if another player catches you before your next turn starts, you must draw 2 penalty cards!"
   },
   {
     question: "What does shuffle hands mean in UNO?",
@@ -1774,36 +1774,66 @@ const FAQ_DATA: FaqItem[] = [
   },
   {
     question: "Is UNO cross platform?",
-    answer: "Yes, UNO With Friends is fully cross-platform. Because it runs directly in any modern web browser, players on Windows, Mac, Linux, iOS, and Android can all join the same multiplayer lobby and play together seamlessly."
+    answer: "Yes, UNO With Friends is fully cross-platform. Because it runs directly in any modern web browser, players on Windows, Mac, Linux, iOS, and Android can all join the same multiplayer lobby and play together seamlessly. No app store download, operating system compatibility check, or platform-specific account is required — just open the link and play."
   },
   {
     question: "How many cards do you get in UNO?",
-    answer: "Each player is dealt exactly 7 cards at the start of a round. The remaining cards are placed face down to form the draw pile."
+    answer: "Each player is dealt exactly 7 cards at the start of a round. The remaining cards are placed face down to form the draw pile. The top card of the draw pile is flipped to start the discard pile. If the starting card is an action card such as a Reverse, Skip, or Draw Two, its effect takes place immediately at the beginning of the round before any player has made a move."
   },
   {
     question: "How many cards in an UNO deck?",
-    answer: "A standard classic UNO deck consists of 108 cards: 76 number cards (0-9 in four colors), 24 action cards (Skip, Reverse, Draw Two), and 8 Wild cards (4 Wild and 4 Wild Draw Four)."
+    answer: "A standard classic UNO deck consists of 108 cards: 76 number cards (0-9 in four colors: Red, Blue, Green, and Yellow, with each number 1-9 appearing twice per color and a single 0 per color), 24 action cards (2 Skip, 2 Reverse, and 2 Draw Two per color), and 8 Wild cards (4 standard Wild and 4 Wild Draw Four)."
   },
   {
     question: "How to play UNO Flip?",
-    answer: "UNO Flip! features a double-sided deck: a Light Side and a Dark Side. Play starts on the Light Side, but playing a 'Flip' card turns all cards in hands, the draw deck, and the discard pile to the Dark Side, introducing new colors and aggressive penalty cards (such as Draw Five and Skip Everyone)."
+    answer: "UNO Flip! features a double-sided deck: a Light Side and a Dark Side. Play starts on the Light Side using the standard colors Red, Blue, Green, and Yellow. When any player plays a 'Flip' card, all cards in every player's hand, the draw deck, and the discard pile instantly flip over to the Dark Side, introducing the colors Orange, Pink, Teal, and Purple along with aggressive penalty cards — Draw Five forces the next player to draw 5 cards, and Skip Everyone gives the current player another turn while everyone else in the round is skipped entirely."
   },
   {
     question: "How to play UNO online with friends?",
-    answer: "To play with friends, go to the home menu, enter your name, and choose 'Host Game' to create a private multiplayer room. You will get a 6-character room code and an invite link that you can share with your friends. They can enter this code in the 'Join Game' input to join your lobby instantly."
+    answer: "To play with friends, go to the home menu, enter your name, and choose 'Host Game' to create a private multiplayer room. You will get a 6-character room code and an invite link that you can share with your friends. They can enter this code in the 'Join Game' input to join your lobby instantly. Once everyone is in the lobby and ready, the host clicks Start Game to begin. The game supports up to 4 players simultaneously."
   },
   {
     question: "Is UNO online free?",
-    answer: "Yes! UNO With Friends is 100% free to play. There are no fees, hidden paywalls, account registrations, or app store downloads required to start playing with your friends or against the computer."
+    answer: "Yes! UNO With Friends is 100% free to play. There are no fees, hidden paywalls, account registrations, or app store downloads required to start playing with your friends or against the computer. The entire game runs in your browser using WebSockets for real-time multiplayer — no plugins or installations needed."
+  },
+  {
+    question: "Can I play UNO against a computer bot?",
+    answer: "Yes! Select 'Play with Computer' on the home screen, enter your name, and add between 1 and 3 CPU bot opponents. The bots play with intelligent strategy — they prioritize colored action cards to pressure you, save Wild cards as a last resort, and automatically pick the best color when playing a Wild. Bot games start immediately with no waiting for other players, making them perfect for solo practice or a quick solo session."
+  },
+  {
+    question: "What happens if I forget to call UNO?",
+    answer: "If you play your second-to-last card and are left with only one card in your hand, you must call UNO before the next player begins their turn. If another player spots this and taps the 'Caught!' button first, you are penalized with 2 extra draw cards. This rule is one of the most exciting and tension-filled mechanics in UNO — always keep an eye on opponents who are running low on cards!"
+  },
+  {
+    question: "What is the UNO Wild Draw Four rule?",
+    answer: "The Wild Draw Four card lets you choose the new active color and forces the next player to draw 4 cards and lose their turn. However, you may only legally play it when you have no card in your hand that matches the current color. If a player suspects you had a valid play and used the Wild Draw Four illegally, they can challenge you. If caught bluffing, you draw 4 cards instead. If the challenge fails, the challenger draws 6 cards."
+  },
+  {
+    question: "How does the turn timer work?",
+    answer: "Each player has 30 seconds to take their turn. A depleting progress ring around your avatar shows how much time remains — green when time is plentiful, yellow as it gets low, and red when nearly expired. If you do not play a card or draw within the 30-second window, the server automatically draws a card for you and passes the turn to the next player. The timer is synchronized across all clients so every player sees the same countdown in real time."
+  },
+  {
+    question: "What are the Dark Side colors in UNO Flip?",
+    answer: "On the Dark Side of UNO Flip!, the four colors are Orange, Pink, Teal, and Purple — replacing the standard Light Side colors of Red, Blue, Green, and Yellow. Each Dark Side card is significantly more punishing: Draw Five replaces Draw One, Skip Everyone replaces Skip, and Wild Draw Color (forces all other players to draw until they hit a card matching the chosen color) replaces Wild Draw Two."
+  },
+  {
+    question: "Is there a hand size limit in UNO?",
+    answer: "In standard UNO rules, there is no official hand size limit — players can accumulate as many cards as their bad luck demands! However, in the brutal UNO No Mercy variant (coming soon to this platform), a mercy rule instantly eliminates any player who accumulates 25 or more cards in their hand. This creates intense pressure to find plays quickly and not let draw penalties stack up unchecked."
   }
 ];
 
+const FAQ_VISIBLE_COUNT = 6;
+
 function VisualFaqSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const toggleIndex = (idx: number) => {
     setOpenIndex(prev => prev === idx ? null : idx);
   };
+
+  const visibleFaqs = showAll ? FAQ_DATA : FAQ_DATA.slice(0, FAQ_VISIBLE_COUNT);
+  const hiddenCount = FAQ_DATA.length - FAQ_VISIBLE_COUNT;
 
   return (
     <div className="mt-12 max-w-2xl mx-auto text-left w-full select-text pointer-events-auto">
@@ -1814,7 +1844,7 @@ function VisualFaqSection() {
       </div>
 
       <div className="flex flex-col gap-3">
-        {FAQ_DATA.map((item, idx) => {
+        {visibleFaqs.map((item, idx) => {
           const isOpen = openIndex === idx;
           return (
             <div
@@ -1825,8 +1855,8 @@ function VisualFaqSection() {
                 onClick={() => toggleIndex(idx)}
                 className="w-full text-left p-4 sm:p-5 flex items-center justify-between font-black text-xs sm:text-sm text-[#0f172a] hover:bg-neutral-bg cursor-pointer select-none"
               >
-                <span>{item.question}</span>
-                <span className="text-sm font-black transition-transform duration-200 transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                <h3 className="font-black text-xs sm:text-sm text-[#0f172a] m-0">{item.question}</h3>
+                <span className="text-sm font-black transition-transform duration-200 transform flex-shrink-0 ml-2" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
                   ▼
                 </span>
               </button>
@@ -1847,6 +1877,95 @@ function VisualFaqSection() {
             </div>
           );
         })}
+      </div>
+
+      {/* Show more / Show less toggle */}
+      <div className="flex justify-center mt-5">
+        <button
+          onClick={() => { setShowAll(v => !v); if (showAll) setOpenIndex(null); }}
+          className="flex items-center gap-2 bg-white border-2 border-[#0f172a] px-5 py-2.5 rounded-[10px] shadow-[3px_3px_0_#0f172a] font-black text-xs text-[#0f172a] uppercase tracking-wider hover:shadow-[1px_1px_0_#0f172a] hover:translate-x-[2px] hover:translate-y-[2px] transition-all duration-150 cursor-pointer select-none pointer-events-auto"
+        >
+          <span>{showAll ? `Show Less` : `Show ${hiddenCount} More Questions`}</span>
+          <motion.span animate={{ rotate: showAll ? 180 : 0 }} transition={{ duration: 0.25 }} className="inline-block">
+            ▼
+          </motion.span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SeoArticle() {
+  const [showMore, setShowMore] = useState(false);
+  return (
+    <div className="mt-16 max-w-2xl mx-auto text-left bg-white border-3 border-[#0f172a] rounded-[20px] p-6 sm:p-8 shadow-[6px_6px_0_#0f172a] font-sans text-xs text-[#0f172a] leading-relaxed select-text pointer-events-auto">
+      <h2 className="font-black text-sm sm:text-base uppercase tracking-wider mb-4 border-b-2 border-[#0f172a] pb-2">
+        Welcome to UNO With Friends &ndash; The Ultimate Free Online UNO Game
+      </h2>
+      <div className="space-y-4">
+        <p>
+          Are you ready to play the ultimate <strong>uno game</strong> online? Welcome to <strong>UNO With Friends</strong>, a completely browser-based, interactive web application where you can play <strong>online uno with friends free</strong> anytime, anywhere. Whether you want to test your strategy against advanced computer AI bots or gather your buddies for a classic match, this <strong>online uno</strong> experience provides the perfect digital playground. Best of all, it requires no downloads or registration, making it the premier platform for a <strong>free uno with friends</strong> session.
+        </p>
+        <p>
+          To get started with <strong>uno with friends online free</strong>, simply enter your name on the home screen, choose your game mode, and either create a private lobby or join an existing one using a 6-character room code. You can invite players instantly by sharing the direct invite link. If you're playing solo, my smart CPU bots are ready to challenge you in a fast-paced game.
+        </p>
+        <p>
+          The core gameplay follows the official <strong>uno rules</strong>. Each player starts with 7 cards, and the goal is to be the first to discard all cards in your hand. On your turn, you must match the top card of the discard pile by color, number, or symbol. If you don't have a matching card, you must draw from the deck. The excitement comes from action cards like the legendary <strong>uno reverse card</strong> (or <strong>reverse uno card</strong>) which changes the direction of play, Skip cards, and Wild cards. Remember: you must yell <strong>UNO</strong> when you have exactly one card left in your hand, or risk being caught by other players!
+        </p>
+        <p>
+          This web application features two distinct game modes: Classic and <strong>uno flip</strong>. If you choose <strong>uno flip</strong>, you will play with a double-sided deck. The game starts on the Light Side, but the moment a Flip card is played, the deck, discard pile, and everyone's hands flip over to the Dark Side. The Dark Side introduces much more aggressive action cards and rules. To master this mode, you must learn the <strong>uno flip rules</strong>, which include cards like Draw Five (forcing the next player to draw five cards) and Skip Everyone (giving the player who laid it another turn immediately).
+        </p>
+
+        {/* Expandable extra paragraphs */}
+        <AnimatePresence initial={false}>
+          {showMore && (
+            <motion.div
+              key="seo-extra"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.35, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-4">
+                <p>
+                  While this app supports the classic game and the flip variant, the world of UNO has many exciting versions. Players often discuss <strong>uno no mercy</strong>, one of the most intense editions of the game. The <strong>uno no mercy rules</strong> are known for stacking draw cards (where +2 and +4 can accumulate), introducing Wild Draw 10 cards, and enforcing a mercy rule where players with 25 or more cards are instantly eliminated. While <strong>uno no mercy</strong> pushes players to the limit, playing <strong>uno flip</strong> on this platform offers a similarly dynamic shift in momentum that will test any veteran player's card game strategy.
+                </p>
+                <p>
+                  One of the most strategic aspects of the classic <strong>uno game</strong> is knowing when to play your action cards. Skip and Reverse cards are most effective when you want to deny a dangerous opponent their turn, especially when they are sitting on just one or two cards. Wild Draw Four cards must be saved carefully &mdash; they can only be played legally when you have no other matching card in your hand, and savvy opponents can challenge the play if they suspect you are bluffing. Building your hand around a dominant color is the simplest way to consistently win rounds of <strong>uno with friends</strong>.
+                </p>
+                <p>
+                  Playing <strong>online uno</strong> against CPU bots is a fantastic way to sharpen your skills before jumping into competitive multiplayer lobbies. The computer opponents on this platform are programmed with intelligent decision-making logic: they prioritize playing action cards to pressure opponents, save Wild cards until no other move is available, and automatically select the color they hold the most of when playing a Wild. Practicing against bots also helps you understand tempo &mdash; how quickly you burn through your hand versus how quickly your opponents do the same.
+                </p>
+                <p>
+                  Multiplayer lobbies on this platform support up to four players simultaneously. Once a room is created, the host receives a unique 6-character alphanumeric room code that can be shared via chat, messaging apps, or the built-in copy-invite-link button. Players who join the lobby can mark themselves as ready, and the host can start the game once everyone is prepared. All game state &mdash; card draws, plays, Wild color selections, UNO calls, and turn timers &mdash; is synchronized across all connected clients in real time through a WebSocket connection.
+                </p>
+                <p>
+                  Every game includes a 30-second turn timer to keep the pace moving and prevent idle players from stalling a lobby. The timer is displayed prominently next to the active player's avatar as a depleting progress ring, changing color from green to yellow to red as time runs low. If a player does not act within their 30 seconds, the server automatically draws a card for them and passes the turn. This ensures that every game of <strong>free uno with friends</strong> remains fast, fair, and fun for all participants.
+                </p>
+                <p>
+                  The UNO Flip! mode on this platform uses an authentic double-sided card representation. On the Light Side, the four standard colors &mdash; Red, Blue, Green, and Yellow &mdash; are in play. When the board flips to the Dark Side, the color scheme switches entirely to Orange, Pink, Teal, and Purple, and the entire hand of every player transforms to reveal its dark-side face. The Dark Side cards carry heavier penalties and fewer exits, making every decision far more consequential. Mastering the timing of a Flip card to catch opponents at a disadvantage is the hallmark of an expert <strong>uno flip</strong> player.
+                </p>
+                <p>
+                  Join the fun today, play a quick game, master the <strong>uno reverse card</strong> timing, and experience the best <strong>uno online game</strong> with your friends for free! Whether you are a casual player looking for a few rounds of the classic card game or a veteran strategist ready to tackle the double-sided chaos of UNO Flip!, this platform has everything you need to enjoy an authentic, polished, and completely <strong>free uno with friends</strong> experience right in your web browser.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Read more / Read less toggle */}
+        <div className="flex justify-center pt-1">
+          <button
+            onClick={() => setShowMore(v => !v)}
+            className="flex items-center gap-2 bg-white border-2 border-[#0f172a] px-5 py-2.5 rounded-[10px] shadow-[3px_3px_0_#0f172a] font-black text-xs text-[#0f172a] uppercase tracking-wider hover:shadow-[1px_1px_0_#0f172a] hover:translate-x-[2px] hover:translate-y-[2px] transition-all duration-150 cursor-pointer select-none pointer-events-auto"
+          >
+            <span>{showMore ? 'Read Less' : 'Read More'}</span>
+            <motion.span animate={{ rotate: showMore ? 180 : 0 }} transition={{ duration: 0.25 }} className="inline-block">
+              &#9660;
+            </motion.span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -4154,9 +4273,9 @@ function App() {
         <div className="mt-16 max-w-2xl mx-auto px-4">
           <div className="flex justify-center mb-6">
             <div className="relative bg-brand-yellow border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a] transform -rotate-1 select-none">
-              <h2 className="text-[#0f172a] font-black text-xs uppercase tracking-wider">
+              <h3 className="text-[#0f172a] font-black text-xs uppercase tracking-wider">
                 Explore Game Modes
-              </h2>
+              </h3>
             </div>
           </div>
 
@@ -4305,33 +4424,7 @@ function App() {
             </motion.div>
           </div>
         </div>
-
-        {/* SEO Information Section */}
-        <div className="mt-16 max-w-2xl mx-auto text-left bg-white border-3 border-[#0f172a] rounded-[20px] p-6 sm:p-8 shadow-[6px_6px_0_#0f172a] font-sans text-xs text-[#0f172a] leading-relaxed select-text pointer-events-auto">
-          <h2 className="font-black text-sm sm:text-base uppercase tracking-wider mb-4 border-b-2 border-[#0f172a] pb-2">
-            Welcome to UNO With Friends – The Ultimate Free Online UNO Game
-          </h2>
-          <div className="space-y-4">
-            <p>
-              Are you ready to play the ultimate <strong>uno game</strong> online? Welcome to <strong>UNO With Friends</strong>, a completely browser-based, interactive web application where you can play <strong>online uno with friends free</strong> anytime, anywhere. Whether you want to test your strategy against advanced computer AI bots or gather your buddies for a classic match, this <strong>online uno</strong> experience provides the perfect digital playground. Best of all, it requires no downloads or registration, making it the premier platform for a <strong>free uno with friends</strong> session.
-            </p>
-            <p>
-              To get started with <strong>uno with friends online free</strong>, simply enter your name on the home screen, choose your game mode, and either create a private lobby or join an existing one using a 6-character room code. You can invite players instantly by sharing the direct invite link. If you’re playing solo, my smart CPU bots are ready to challenge you in a fast-paced game.
-            </p>
-            <p>
-              The core gameplay follows the official <strong>uno rules</strong>. Each player starts with 7 cards, and the goal is to be the first to discard all cards in your hand. On your turn, you must match the top card of the discard pile by color, number, or symbol. If you don't have a matching card, you must draw from the deck. The excitement comes from action cards like the legendary <strong>uno reverse card</strong> (or <strong>reverse uno card</strong>) which changes the direction of play, Skip cards, and Wild cards. Remember: you must yell <strong>UNO</strong> when you have exactly one card left in your hand, or risk being caught by other players!
-            </p>
-            <p>
-              This web application features two distinct game modes: Classic and <strong>uno flip</strong>. If you choose <strong>uno flip</strong>, you will play with a double-sided deck. The game starts on the Light Side, but the moment a Flip card is played, the deck, discard pile, and everyone's hands flip over to the Dark Side. The Dark Side introduces much more aggressive action cards and rules. To master this mode, you must learn the <strong>uno flip rules</strong>, which include cards like Draw Five (forcing the next player to draw five cards) and Skip Everyone (giving the player who laid it another turn immediately).
-            </p>
-            <p>
-              While this app supports the classic game and the flip variant, the world of UNO has many exciting versions. Players often discuss <strong>uno no mercy</strong>, one of the most intense editions of the game. The <strong>uno no mercy rules</strong> are known for stacking draw cards (where +2 and +4 can accumulate), introducing Wild Draw 10 cards, and enforcing a mercy rule where players with 25 or more cards are instantly eliminated. While <strong>uno no mercy</strong> pushes players to the limit, playing <strong>uno flip</strong> on this platform offers a similarly dynamic shift in momentum that will test any veteran player's card game strategy.
-            </p>
-            <p>
-              Join the fun today, play a quick game, master the <strong>uno reverse card</strong> timing, and experience the best <strong>uno online game</strong> with your friends for free!
-            </p>
-          </div>
-        </div>
+        <SeoArticle />
         <VisualFaqSection />
 
         {/* Footer Links for Multi-Page Application (SEO) */}
