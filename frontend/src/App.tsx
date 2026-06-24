@@ -1626,6 +1626,7 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
               } as React.CSSProperties}
               type="text"
               value={cpuPlayerName}
+              maxLength={14}
               onChange={(e) => {
                 setCpuPlayerName(e.target.value);
                 if (e.target.value.trim()) {
@@ -1752,6 +1753,100 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
             </div>
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+const FAQ_DATA: FaqItem[] = [
+  {
+    question: "How to play UNO?",
+    answer: "Play starts by matching the top card of the discard pile by color, number, or action symbol. If you cannot match, you must draw a card from the deck. The first player to discard all their cards wins the round. Remember to call 'UNO' when you are down to your last card!"
+  },
+  {
+    question: "What does shuffle hands mean in UNO?",
+    answer: "In versions of UNO featuring the 'Shuffle Hands' wild card, the player who plays it collects all cards from every player's hand, shuffles them together into a single deck, and redeals them as evenly as possible to all players starting from their left."
+  },
+  {
+    question: "Is UNO cross platform?",
+    answer: "Yes, UNO With Friends is fully cross-platform. Because it runs directly in any modern web browser, players on Windows, Mac, Linux, iOS, and Android can all join the same multiplayer lobby and play together seamlessly."
+  },
+  {
+    question: "How many cards do you get in UNO?",
+    answer: "Each player is dealt exactly 7 cards at the start of a round. The remaining cards are placed face down to form the draw pile."
+  },
+  {
+    question: "How many cards in an UNO deck?",
+    answer: "A standard classic UNO deck consists of 108 cards: 76 number cards (0-9 in four colors), 24 action cards (Skip, Reverse, Draw Two), and 8 Wild cards (4 Wild and 4 Wild Draw Four)."
+  },
+  {
+    question: "How to play UNO Flip?",
+    answer: "UNO Flip! features a double-sided deck: a Light Side and a Dark Side. Play starts on the Light Side, but playing a 'Flip' card turns all cards in hands, the draw deck, and the discard pile to the Dark Side, introducing new colors and aggressive penalty cards (such as Draw Five and Skip Everyone)."
+  },
+  {
+    question: "How to play UNO online with friends?",
+    answer: "To play with friends, go to the home menu, enter your name, and choose 'Host Game' to create a private multiplayer room. You will get a 6-character room code and an invite link that you can share with your friends. They can enter this code in the 'Join Game' input to join your lobby instantly."
+  },
+  {
+    question: "Is UNO online free?",
+    answer: "Yes! UNO With Friends is 100% free to play. There are no fees, hidden paywalls, account registrations, or app store downloads required to start playing with your friends or against the computer."
+  }
+];
+
+function VisualFaqSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const toggleIndex = (idx: number) => {
+    setOpenIndex(prev => prev === idx ? null : idx);
+  };
+
+  return (
+    <div className="mt-12 max-w-2xl mx-auto text-left w-full select-text pointer-events-auto">
+      <div className="relative bg-brand-yellow border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a] inline-block mb-6 transform -rotate-1">
+        <h2 className="text-[#0f172a] font-black text-xs sm:text-sm tracking-wider uppercase select-none">
+          Frequently Asked Questions
+        </h2>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {FAQ_DATA.map((item, idx) => {
+          const isOpen = openIndex === idx;
+          return (
+            <div
+              key={idx}
+              className="bg-white border-3 border-[#0f172a] rounded-[16px] shadow-[4px_4px_0_#0f172a] overflow-hidden transition-all duration-200"
+            >
+              <button
+                onClick={() => toggleIndex(idx)}
+                className="w-full text-left p-4 sm:p-5 flex items-center justify-between font-black text-xs sm:text-sm text-[#0f172a] hover:bg-neutral-bg cursor-pointer select-none"
+              >
+                <span>{item.question}</span>
+                <span className="text-sm font-black transition-transform duration-200 transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  ▼
+                </span>
+              </button>
+              <AnimatePresence initial={false}>
+                {isOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  >
+                    <div className="px-4 sm:px-5 pb-4 sm:pb-5 text-neutral-muted font-bold text-xs leading-relaxed border-t border-[#0f172a]/15 pt-3">
+                      {item.answer}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -2132,14 +2227,14 @@ function App() {
       tryReconnect();
     });
 
-    // Track connect_error retries — auto-refresh if server is unreachable after 3 attempts
+    // Track connect_error retries — redirect to 500 error page if server is unreachable after 3 attempts
     let connectErrorCount = 0;
     socket.on('connect_error', (err) => {
       console.error('Socket connection error occurred:', err);
       connectErrorCount++;
       if (connectErrorCount >= 3) {
-        console.warn('Server unreachable after 3 attempts. Reloading page...');
-        window.location.reload();
+        console.warn('Server unreachable after 3 attempts. Redirecting to server error page...');
+        window.location.href = '/500.html';
       }
     });
 
@@ -2729,6 +2824,7 @@ function App() {
                 } as React.CSSProperties}
                 type="text"
                 value={playerName}
+                maxLength={14}
                 onChange={(e) => {
                   setPlayerName(e.target.value);
                   if (e.target.value.trim()) {
@@ -3315,7 +3411,7 @@ function App() {
                   <span className="btn-3d-edge" style={{ 
                     background: 'linear-gradient(to left, #7c2d12 0%, #ea580c 8%, #ea580c 92%, #7c2d12 100%)' 
                   }} />
-                  <div className="btn-3d-front px-4 flex items-center justify-center gap-2 font-black select-none uppercase tracking-wider text-xs border-3 border-[#0f172a] text-white bg-orange-600 h-12 shadow-inner animate-pulse">
+                  <div className="btn-3d-front px-4 flex items-center justify-center gap-2 font-black select-none uppercase tracking-wider text-xs text-white bg-orange-600 h-12 shadow-inner animate-pulse">
                     <Zap className="w-4 h-4" />
                     <span>Caught!</span>
                   </div>
@@ -3336,7 +3432,7 @@ function App() {
                   <span className="btn-3d-edge" style={{ 
                     background: 'linear-gradient(to left, #14532d 0%, #166534 8%, #166534 92%, #14532d 100%)' 
                   }} />
-                  <div className="btn-3d-front flex items-center justify-center gap-2 font-black select-none uppercase tracking-widest text-xs border-3 border-[#0f172a] text-white bg-[#166534] h-12">
+                  <div className="btn-3d-front flex items-center justify-center gap-2 font-black select-none uppercase tracking-widest text-xs text-white bg-[#166534] h-12">
                     <Check className="w-4 h-4" />
                     <span>UNO Called</span>
                   </div>
@@ -3344,7 +3440,7 @@ function App() {
               ) : (
                 <>
                   <span className="btn-3d-edge btn-3d-edge-red" />
-                  <div className="btn-3d-front btn-3d-front-red flex items-center justify-center gap-2 font-black select-none uppercase tracking-widest text-xs border-3 border-[#0f172a] text-white h-12">
+                  <div className="btn-3d-front btn-3d-front-red flex items-center justify-center gap-2 font-black select-none uppercase tracking-widest text-xs text-white h-12">
                     <Megaphone className="w-4 h-4" />
                     <span>UNO!</span>
                   </div>
@@ -3996,6 +4092,50 @@ function App() {
             </div>
           </button>
         </div>
+
+        {/* SEO Information Section */}
+        <div className="mt-16 max-w-2xl mx-auto text-left bg-white border-3 border-[#0f172a] rounded-[20px] p-6 sm:p-8 shadow-[6px_6px_0_#0f172a] font-sans text-xs text-[#0f172a] leading-relaxed select-text pointer-events-auto">
+          <h2 className="font-black text-sm sm:text-base uppercase tracking-wider mb-4 border-b-2 border-[#0f172a] pb-2">
+            Welcome to UNO With Friends – The Ultimate Free Online UNO Game
+          </h2>
+          <div className="space-y-4">
+            <p>
+              Are you ready to play the ultimate <strong>uno game</strong> online? Welcome to <strong>UNO With Friends</strong>, a completely browser-based, interactive web application where you can play <strong>online uno with friends free</strong> anytime, anywhere. Whether you want to test your strategy against advanced computer AI bots or gather your buddies for a classic match, this <strong>online uno</strong> experience provides the perfect digital playground. Best of all, it requires no downloads or registration, making it the premier platform for a <strong>free uno with friends</strong> session.
+            </p>
+            <p>
+              To get started with <strong>uno with friends online free</strong>, simply enter your name on the home screen, choose your game mode, and either create a private lobby or join an existing one using a 6-character room code. You can invite players instantly by sharing the direct invite link. If you’re playing solo, our smart CPU bots are ready to challenge you in a fast-paced game.
+            </p>
+            <p>
+              The core gameplay follows the official <strong>uno rules</strong>. Each player starts with 7 cards, and the goal is to be the first to discard all cards in your hand. On your turn, you must match the top card of the discard pile by color, number, or symbol. If you don't have a matching card, you must draw from the deck. The excitement comes from action cards like the legendary <strong>uno reverse card</strong> (or <strong>reverse uno card</strong>) which changes the direction of play, Skip cards, and Wild cards. Remember: you must yell <strong>UNO</strong> when you have exactly one card left in your hand, or risk being caught by other players!
+            </p>
+            <p>
+              Our web application features two distinct game modes: Classic and <strong>uno flip</strong>. If you choose <strong>uno flip</strong>, you will play with a double-sided deck. The game starts on the Light Side, but the moment a Flip card is played, the deck, discard pile, and everyone's hands flip over to the Dark Side. The Dark Side introduces much more aggressive action cards and rules. To master this mode, you must learn the <strong>uno flip rules</strong>, which include cards like Draw Five (forcing the next player to draw five cards) and Skip Everyone (giving the player who laid it another turn immediately).
+            </p>
+            <p>
+              While our app supports the classic game and the flip variant, the world of UNO has many exciting versions. Players often discuss <strong>uno no mercy</strong>, one of the most intense editions of the game. The <strong>uno no mercy rules</strong> are known for stacking draw cards (where +2 and +4 can accumulate), introducing Wild Draw 10 cards, and enforcing a mercy rule where players with 25 or more cards are instantly eliminated. While <strong>uno no mercy</strong> pushes players to the limit, playing <strong>uno flip</strong> on our platform offers a similarly dynamic shift in momentum that will test any veteran player's card game strategy.
+            </p>
+            <p>
+              Join the fun today, play a quick game, master the <strong>uno reverse card</strong> timing, and experience the best <strong>uno online game</strong> with your friends for free!
+            </p>
+          </div>
+        </div>
+        <VisualFaqSection />
+
+        {/* Footer Links for Multi-Page Application (SEO) */}
+        <footer className="mt-16 border-t-2 border-[#0f172a]/15 pt-6 pb-4 w-full max-w-2xl mx-auto flex flex-wrap justify-center gap-6 text-[10px] sm:text-xs font-black uppercase tracking-wider">
+          <a href="/about.html" className="text-neutral-muted hover:text-brand-red transition-colors cursor-pointer select-none">
+            About Us
+          </a>
+          <a href="/privacy.html" className="text-neutral-muted hover:text-brand-blue transition-colors cursor-pointer select-none">
+            Privacy Policy
+          </a>
+          <a href="/terms.html" className="text-neutral-muted hover:text-brand-green transition-colors cursor-pointer select-none">
+            Terms & Conditions
+          </a>
+          <a href="/contact.html" className="text-neutral-muted hover:text-brand-yellow transition-colors cursor-pointer select-none">
+            Contact Us
+          </a>
+        </footer>
       </div>
       {renderModal()}
     </div>

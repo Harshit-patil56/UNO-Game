@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-0WEBRN8YMC"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-0WEBRN8YMC');
+    </script>
+    <link rel="icon" type="image/png" href="/uno logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact Us - UNO With Friends</title>
+    <meta name="description" content="Get in touch with the UNO With Friends team. Report bugs or send us your feedback." />
+    <link rel="stylesheet" href="/src/index.css" />
+  </head>
+  <body class="min-h-[100dvh] bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col items-center justify-center py-12 px-4 select-text">
+    
+    <!-- Beta Pill -->
+    <div class="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-col items-start gap-1.5 group">
+      <div class="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
+        Beta 1.2
+      </div>
+      <div class="hidden group-hover:block absolute left-0 top-7 bg-white text-[#0f172a] border-2 border-[#0f172a] p-3 rounded-[8px] shadow-[3px_3px_0_#0f172a] max-w-[220px] text-left z-50">
+        <p class="text-[10px] font-bold leading-normal">
+          The game is in beta. Some features might not work; they will come soon. There may be some bugs and glitches, so please bear with us!
+        </p>
+      </div>
+    </div>
+
+    <div class="max-w-xl w-full text-center flex flex-col items-center my-auto">
+
+      <!-- Main Brutalist Card Container -->
+      <div class="relative bg-white border-3 border-[#0f172a] rounded-[20px] pt-12 pb-6 px-6 sm:px-8 shadow-[8px_8px_0_#0f172a] w-full text-left">
+        
+        <!-- Symmetrical Header Pill -->
+        <div class="absolute left-6 -top-5.5 bg-[#ecd407] border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a]">
+          <h1 class="text-[#0f172a] font-black text-xs tracking-wider uppercase select-none">
+            Contact Us
+          </h1>
+        </div>
+
+        <!-- Symmetrical Back Button -->
+        <a href="/" title="Back to Main Menu" class="absolute right-6 -top-5.5 bg-white hover:bg-[#ecd407] hover:text-[#0f172a] text-[#0f172a] border-2 border-[#0f172a] px-3.5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a] transition-all duration-180 ease-in-out cursor-pointer flex items-center gap-1.5 no-underline">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <span class="font-bold text-xs tracking-wider uppercase select-none">Back</span>
+        </a>
+
+        <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed mb-6 mt-4">
+          Have feedback, found a bug, or want to contribute? Send us a message using the form below!
+        </p>
+
+        <form id="contactForm" class="space-y-6" novalidate>
+          <div id="nameContainer" class="relative w-full brutalist-container" style="margin-top: 36px; margin-bottom: 12px;">
+            <input id="nameInput" placeholder="ENTER YOUR NAME" class="brutalist-input w-full" style="--input-shadow-color: #0956bf;" required />
+            <label id="nameLabel" class="brutalist-label bg-[#0956bf]">Name</label>
+          </div>
+          <div id="emailContainer" class="relative w-full brutalist-container" style="margin-top: 48px; margin-bottom: 12px;">
+            <input id="emailInput" type="email" placeholder="ENTER YOUR EMAIL" class="brutalist-input w-full" style="--input-shadow-color: #379711;" required />
+            <label id="emailLabel" class="brutalist-label bg-[#379711]">Email</label>
+          </div>
+          <div id="messageContainer" class="relative w-full brutalist-container" style="margin-top: 48px; margin-bottom: 12px;">
+            <textarea id="messageInput" placeholder="ENTER YOUR MESSAGE" rows="4" class="brutalist-input w-full min-h-[100px] py-3 resize-none" style="--input-shadow-color: #ecd407;" required></textarea>
+            <label id="messageLabel" class="brutalist-label bg-[#ecd407]">Message</label>
+          </div>
+
+          <button type="submit" class="btn-3d w-full mt-4">
+            <span class="btn-3d-shadow"></span>
+            <span class="btn-3d-edge btn-3d-edge-green"></span>
+            <div class="btn-3d-front btn-3d-front-green flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-12">
+              Send Message
+            </div>
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- Symmetrical Error Handling Script -->
+    <script>
+      const form = document.getElementById('contactForm');
+      const nameInput = document.getElementById('nameInput');
+      const nameContainer = document.getElementById('nameContainer');
+      const nameLabel = document.getElementById('nameLabel');
+
+      const emailInput = document.getElementById('emailInput');
+      const emailContainer = document.getElementById('emailContainer');
+      const emailLabel = document.getElementById('emailLabel');
+
+      const messageInput = document.getElementById('messageInput');
+      const messageContainer = document.getElementById('messageContainer');
+      const messageLabel = document.getElementById('messageLabel');
+
+      // Helper to clear error state on input
+      const clearError = (input, container, label, originalLabelText, originalLabelBg) => {
+        input.classList.remove('brutalist-input-error');
+        container.classList.remove('animate-brutal-shake');
+        label.textContent = originalLabelText;
+        label.className = `brutalist-label ${originalLabelBg}`;
+      };
+
+      nameInput.addEventListener('input', () => clearError(nameInput, nameContainer, nameLabel, 'Name', 'bg-[#0956bf]'));
+      emailInput.addEventListener('input', () => clearError(emailInput, emailContainer, emailLabel, 'Email', 'bg-[#379711]'));
+      messageInput.addEventListener('input', () => clearError(messageInput, messageContainer, messageLabel, 'Message', 'bg-[#ecd407]'));
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        let hasError = false;
+
+        // Validate Name
+        if (!nameInput.value.trim()) {
+          nameInput.classList.add('brutalist-input-error');
+          nameContainer.classList.remove('animate-brutal-shake');
+          void nameContainer.offsetWidth; // trigger reflow
+          nameContainer.classList.add('animate-brutal-shake');
+          nameLabel.textContent = 'Name is Required!';
+          nameLabel.className = 'brutalist-label bg-[#cc3333]';
+          hasError = true;
+        }
+
+        // Validate Email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailInput.value.trim()) {
+          emailInput.classList.add('brutalist-input-error');
+          emailContainer.classList.remove('animate-brutal-shake');
+          void emailContainer.offsetWidth; // trigger reflow
+          emailContainer.classList.add('animate-brutal-shake');
+          emailLabel.textContent = 'Email is Required!';
+          emailLabel.className = 'brutalist-label bg-[#cc3333]';
+          hasError = true;
+        } else if (!emailRegex.test(emailInput.value.trim())) {
+          emailInput.classList.add('brutalist-input-error');
+          emailContainer.classList.remove('animate-brutal-shake');
+          void emailContainer.offsetWidth; // trigger reflow
+          emailContainer.classList.add('animate-brutal-shake');
+          emailLabel.textContent = 'Invalid Email Address!';
+          emailLabel.className = 'brutalist-label bg-[#cc3333]';
+          hasError = true;
+        }
+
+        // Validate Message
+        if (!messageInput.value.trim()) {
+          messageInput.classList.add('brutalist-input-error');
+          messageContainer.classList.remove('animate-brutal-shake');
+          void messageContainer.offsetWidth; // trigger reflow
+          messageContainer.classList.add('animate-brutal-shake');
+          messageLabel.textContent = 'Message is Required!';
+          messageLabel.className = 'brutalist-label bg-[#cc3333]';
+          hasError = true;
+        }
+
+        if (!hasError) {
+          alert('Feedback received! Thank you for playing.');
+          window.location.href = '/';
+        }
+      });
+    </script>
+  </body>
+</html>

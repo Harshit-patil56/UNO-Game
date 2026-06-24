@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-0WEBRN8YMC"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-0WEBRN8YMC');
+    </script>
+    <link rel="icon" type="image/png" href="/uno logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>500 - Server Error | UNO With Friends</title>
+    <meta name="description" content="Oops! A server error occurred. Draw another card or try again." />
+    <link rel="stylesheet" href="/src/index.css" />
+  </head>
+  <body class="min-h-[100dvh] bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col items-center justify-center py-12 px-4 select-text">
+    <div class="max-w-md w-full text-center flex flex-col items-center my-auto">
+
+      <!-- Main Brutalist Card Container -->
+      <div class="relative bg-white border-3 border-[#0f172a] rounded-[20px] pt-12 pb-8 px-6 sm:px-8 shadow-[8px_8px_0_#0f172a] w-full flex flex-col items-center gap-6">
+        
+        <!-- Symmetrical Header Pill -->
+        <div class="absolute left-6 -top-5.5 bg-[#cc3333] border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a]">
+          <h1 class="text-white font-black text-xs tracking-wider uppercase select-none">
+            500 WILD DRAW 4
+          </h1>
+        </div>
+
+        <!-- 500 Message content -->
+        <div class="flex flex-col items-center gap-4 mt-4">
+          <!-- Big Draw 4 Card Icon Representation -->
+          <div class="w-20 h-28 border-3 border-[#0f172a] rounded-[10px] bg-[#0f172a] shadow-[4px_4px_0_#0f172a] flex items-center justify-center relative overflow-hidden">
+            <div class="absolute inset-2 border border-white/25 rounded-[6px]"></div>
+            <span class="text-white font-black text-3xl select-none transform rotate-12">+4</span>
+          </div>
+
+          <h2 class="text-xl font-black uppercase text-[#0f172a] tracking-wide mt-2">
+            Wild Draw 4!
+          </h2>
+          <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed">
+            Oops! Someone played a Wild Draw 4 and overloaded the system. An internal server error occurred. Try drawing another card by reloading the page.
+          </p>
+        </div>
+
+        <!-- 3D Arcade Back Button -->
+        <div class="w-full flex justify-center mt-2">
+          <a href="/" class="btn-3d w-full">
+            <span class="btn-3d-shadow"></span>
+            <span class="btn-3d-edge btn-3d-edge-blue"></span>
+            <div class="btn-3d-front btn-3d-front-blue flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-12">
+              Try Again
+            </div>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </body>
+</html>

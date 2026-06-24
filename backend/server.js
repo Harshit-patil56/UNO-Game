@@ -33,6 +33,17 @@ app.get('/rooms/:roomId', (req, res) => {
   res.json({ roomId: room.roomId, gameMode: room.gameMode });
 });
 
+// Custom 404 (Not Found) JSON error handler
+app.use((req, res, next) => {
+  res.status(404).json({ error: 'Endpoint not found', status: 404 });
+});
+
+// Custom 500 (Internal Server Error) JSON error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error:', err);
+  res.status(500).json({ error: 'Internal server error', status: 500 });
+});
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
