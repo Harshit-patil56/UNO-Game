@@ -1958,6 +1958,63 @@ function App() {
   // Tracks whether the current game was started as a CPU game (to skip lobby flash)
   const isCpuGameRef = useRef(false);
 
+  // Hover states for Explore Game Modes cards (3D parallax mouse follow)
+  const [classicHover, setClassicHover] = useState({ rotateX: 0, rotateY: 0, x: 0, y: 0, rotate: 6, scale: 1.0 });
+  const [flipHover, setFlipHover] = useState({ rotateX: 0, rotateY: 0, x: 0, y: 0, rotate: -6, scale: 1.0 });
+  const [mercyHover, setMercyHover] = useState({ rotateX: 0, rotateY: 0, x: 0, y: 0, rotate: 3, scale: 1.0 });
+
+  const handleShowcaseMouseMove = (e: React.MouseEvent<HTMLDivElement>, type: 'classic' | 'flip' | 'mercy') => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const xc = rect.width / 2;
+    const yc = rect.height / 2;
+    const dx = (x - xc) / xc; // range -1 to 1
+    const dy = (y - yc) / yc; // range -1 to 1
+
+    const maxTilt = 22; // Maximum tilt angle in degrees
+    const maxTranslate = 8; // Maximum shift offset in pixels
+
+    if (type === 'classic') {
+      setClassicHover({
+        rotateX: -dy * maxTilt,
+        rotateY: dx * maxTilt,
+        x: dx * maxTranslate,
+        y: dy * maxTranslate,
+        rotate: 6 + dx * 8,
+        scale: 1.12,
+      });
+    } else if (type === 'flip') {
+      setFlipHover({
+        rotateX: -dy * maxTilt,
+        rotateY: dx * maxTilt,
+        x: dx * maxTranslate,
+        y: dy * maxTranslate,
+        rotate: -6 + dx * 8,
+        scale: 1.12,
+      });
+    } else if (type === 'mercy') {
+      setMercyHover({
+        rotateX: -dy * maxTilt,
+        rotateY: dx * maxTilt,
+        x: dx * maxTranslate,
+        y: dy * maxTranslate,
+        rotate: 3 + dx * 8,
+        scale: 1.12,
+      });
+    }
+  };
+
+  const handleShowcaseMouseLeave = (type: 'classic' | 'flip' | 'mercy') => {
+    if (type === 'classic') {
+      setClassicHover({ rotateX: 0, rotateY: 0, x: 0, y: 0, rotate: 6, scale: 1.0 });
+    } else if (type === 'flip') {
+      setFlipHover({ rotateX: 0, rotateY: 0, x: 0, y: 0, rotate: -6, scale: 1.0 });
+    } else if (type === 'mercy') {
+      setMercyHover({ rotateX: 0, rotateY: 0, x: 0, y: 0, rotate: 3, scale: 1.0 });
+    }
+  };
+
   // Custom Alert / Confirm Modal State
   const [activeModal, setActiveModal] = useState<{
     type: 'alert' | 'confirm';
@@ -4091,6 +4148,162 @@ function App() {
               <span className="font-semibold select-none whitespace-nowrap">Play with Computer</span>
             </div>
           </button>
+        </div>
+
+        {/* Game Modes Showcase Section */}
+        <div className="mt-16 max-w-2xl mx-auto px-4">
+          <div className="flex justify-center mb-6">
+            <div className="relative bg-brand-yellow border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a] transform -rotate-1 select-none">
+              <h2 className="text-[#0f172a] font-black text-xs uppercase tracking-wider">
+                Explore Game Modes
+              </h2>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+            {/* Classic UNO Card */}
+            <motion.div
+              whileHover={{ y: -4, boxShadow: '6px 6px 0 #0f172a' }}
+              onMouseMove={(e) => handleShowcaseMouseMove(e, 'classic')}
+              onMouseLeave={() => handleShowcaseMouseLeave('classic')}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative overflow-hidden"
+            >
+              <div className="mt-2">
+                <div 
+                  className="mb-4 flex items-center justify-start select-none" 
+                  style={{ perspective: '600px' }}
+                >
+                  <motion.div 
+                    className="w-[56px] h-[84px] rounded-[8px] overflow-hidden bg-white relative shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
+                    animate={classicHover}
+                    transition={{ type: 'spring', stiffness: 180, damping: 15 }}
+                  >
+                    <img 
+                      src="/cards/Red_7.png" 
+                      alt="Classic UNO Card" 
+                      className="w-full h-full object-contain pointer-events-none" 
+                    />
+                  </motion.div>
+                </div>
+                <h3 className="font-black text-xs uppercase text-[#0f172a] tracking-wide mb-1.5">
+                  Classic UNO
+                </h3>
+                <p className="text-[10px] font-bold text-neutral-muted leading-relaxed">
+                  The standard cards and rules. Match by color/number and use Reverse, Skip, and Draw Two actions to empty your hand.
+                </p>
+              </div>
+            </motion.div>
+
+            {/* UNO Flip Card */}
+            <motion.div
+              whileHover={{ y: -4, boxShadow: '6px 6px 0 #0f172a' }}
+              onMouseMove={(e) => handleShowcaseMouseMove(e, 'flip')}
+              onMouseLeave={() => handleShowcaseMouseLeave('flip')}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative"
+            >
+              {/* NEW! Starburst Badge (half on main card, half outside) */}
+              <div className="absolute -top-6 -right-6 w-14 h-14 z-20 flex items-center justify-center pointer-events-none drop-shadow-[2.5px_2.5px_0_#0f172a]">
+                <svg viewBox="0 0 100 100" className="w-full h-full">
+                  <polygon
+                    points="98,50 86,60 92,74 76,76 74,92 60,86 50,98 40,86 26,92 24,76 8,74 14,60 2,50 14,40 8,26 24,24 26,8 40,14 50,2 60,14 74,8 76,24 92,26 86,40"
+                    fill="#ecd407"
+                    stroke="#0f172a"
+                    strokeWidth="6"
+                    strokeLinejoin="miter"
+                  />
+                  <text
+                    x="50%"
+                    y="55%"
+                    dominantBaseline="middle"
+                    textAnchor="middle"
+                    fill="#0f172a"
+                    fontSize="18"
+                    fontFamily="sans-serif"
+                    fontWeight="900"
+                    letterSpacing="0.5"
+                  >
+                    NEW!
+                  </text>
+                </svg>
+              </div>
+              <div className="mt-2">
+                <div 
+                  className="mb-4 flex items-center justify-start select-none" 
+                  style={{ perspective: '600px' }}
+                >
+                  <motion.div 
+                    className="relative"
+                    animate={flipHover}
+                    transition={{ type: 'spring', stiffness: 180, damping: 15 }}
+                  >
+                    {/* Card container */}
+                    <div 
+                      className="w-[56px] h-[84px] rounded-[8px] overflow-hidden bg-white relative shadow-[0_12px_24px_-4px_rgba(0,0,0,0.22),0_4px_8px_rgba(0,0,0,0.15)]"
+                    >
+                      <img 
+                        src="/cards/flip/Purple_FLIP.jpg" 
+                        alt="UNO Flip Card" 
+                        className="absolute pointer-events-none select-none" 
+                        style={{ 
+                          width: '102.44%', 
+                          height: '102.38%', 
+                          left: '-1.22%', 
+                          top: '-1.19%',
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                        }} 
+                      />
+                    </div>
+                  </motion.div>
+                </div>
+                <h3 className="font-black text-xs uppercase text-[#0f172a] tracking-wide mb-1.5">
+                  UNO Flip!
+                </h3>
+                <p className="text-[10px] font-bold text-neutral-muted leading-relaxed">
+                  A double-sided deck of cards. Play normally on the Light Side, then play a Flip card to swap to the aggressive Dark Side!
+                </p>
+              </div>
+            </motion.div>
+
+            {/* UNO No Mercy Card */}
+            <motion.div
+              whileHover={{ y: -4, boxShadow: '6px 6px 0 rgba(15,23,42,0.15)' }}
+              onMouseMove={(e) => handleShowcaseMouseMove(e, 'mercy')}
+              onMouseLeave={() => handleShowcaseMouseLeave('mercy')}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+              className="bg-neutral-bg border-3 border-dashed border-[#0f172a]/20 rounded-[20px] p-5 shadow-[4px_4px_0_rgba(15,23,42,0.05)] flex flex-col justify-between relative group"
+            >
+              <div className="absolute right-6 -top-3.5 bg-brand-red border-2 border-[#0f172a] px-3 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] text-white font-black text-[9px] uppercase tracking-wider select-none">
+                Coming Soon
+              </div>
+              <div className="mt-2">
+                <div 
+                  className="mb-4 flex items-center justify-start select-none" 
+                  style={{ perspective: '600px' }}
+                >
+                  <motion.div 
+                    className="w-[56px] h-[84px] rounded-[8px] overflow-hidden bg-white relative shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
+                    animate={mercyHover}
+                    transition={{ type: 'spring', stiffness: 180, damping: 15 }}
+                  >
+                    <img 
+                      src="/cards/No_Mercy.png" 
+                      alt="UNO No Mercy Card" 
+                      className="w-full h-full object-contain pointer-events-none" 
+                    />
+                  </motion.div>
+                </div>
+                <h3 className="font-black text-xs uppercase text-[#0f172a]/50 tracking-wide mb-1.5">
+                  UNO No Mercy
+                </h3>
+                <p className="text-[10px] font-bold text-neutral-muted/50 leading-relaxed">
+                  The most brutal UNO edition yet. Stacking draw penalties, tougher Action cards, and instant elimination if you hold 25+ cards.
+                </p>
+              </div>
+            </motion.div>
+          </div>
         </div>
 
         {/* SEO Information Section */}
