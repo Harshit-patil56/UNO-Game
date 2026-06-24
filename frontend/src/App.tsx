@@ -578,9 +578,9 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
         <div className="absolute -right-3 -bottom-1.5 z-10">
           <div className="relative w-8 h-10 sm:w-9 sm:h-11">
             {/* Back card */}
-            <div className="absolute left-0.5 top-0.7 w-6.5 h-8.5 sm:w-7 sm:h-9 bg-white border-2 border-[#0f172a] rounded-[4px] shadow-[1px_1px_0_rgba(0,0,0,0.15)] transform -rotate-6" />
+            <div className="absolute left-0.5 top-0.7 w-6.5 h-8.5 sm:w-7 sm:h-9 bg-white rounded-[4px] shadow-[0_1.5px_3px_rgba(0,0,0,0.25)] transform -rotate-6" />
             {/* Top card */}
-            <div className="absolute left-1.5 top-0 w-6.5 h-8.5 sm:w-7 sm:h-9 bg-white border-2 border-[#0f172a] rounded-[4px] shadow-[2px_2px_0_#0f172a] flex items-center justify-center font-black text-xs text-[#0f172a] transform rotate-3 select-none">
+            <div className="absolute left-1.5 top-0 w-6.5 h-8.5 sm:w-7 sm:h-9 bg-white rounded-[4px] shadow-[0_2px_4px_rgba(0,0,0,0.3)] flex items-center justify-center font-black text-xs text-[#0f172a] transform rotate-3 select-none">
               {cardCount}
             </div>
           </div>
@@ -695,7 +695,7 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
         return (
           <div key={idx} style={outerStyle} className="relative flex-shrink-0">
             <div
-              className={`w-full h-full relative rounded-[6px] border-2 border-[#0f172a] overflow-hidden transition-all duration-300 ${gameMode === 'flip' ? 'shadow-[0_4px_12px_-1px_rgba(0,0,0,0.6),0_1px_4px_rgba(0,0,0,0.35)]' : 'shadow-[1px_2px_4px_rgba(0,0,0,0.18)]'}`}
+              className={`w-full h-full relative rounded-[6px] overflow-hidden transition-all duration-300 ${gameMode === 'flip' ? 'shadow-[0_4px_12px_-1px_rgba(0,0,0,0.6),0_1px_4px_rgba(0,0,0,0.35)]' : 'shadow-[1px_2px_4px_rgba(0,0,0,0.18)]'}`}
               style={{
                 backgroundColor: '#ffffff', // Always white background so card rounded corner blend is clean
                 WebkitBoxReflect: 'below 1px linear-gradient(transparent 75%, rgba(255, 255, 255, 0.12))',
@@ -3618,22 +3618,22 @@ function App() {
               title="Draw Card"
             >
               <div
-                className="absolute inset-0 bg-neutral-border rounded-[7px] sm:rounded-[12px] border-3 border-[#0f172a]"
+                className="absolute inset-0 bg-white rounded-[7px] sm:rounded-[12px]"
                 style={{
                   transform: 'translate(4px, 4px)',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
                 }}
               />
               <div
-                className="absolute inset-0 bg-neutral-border rounded-[7px] sm:rounded-[12px] border-3 border-[#0f172a]"
+                className="absolute inset-0 bg-white rounded-[7px] sm:rounded-[12px]"
                 style={{
                   transform: 'translate(2px, 2px)',
                   boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
                 }}
               />
               <div
-                className={`absolute inset-0 rounded-[7px] sm:rounded-[12px] overflow-hidden border-3 border-[#0f172a] flex items-center justify-center ${room.gameMode === 'flip' ? 'shadow-[0_16px_36px_-4px_rgba(0,0,0,0.55),0_6px_12px_rgba(0,0,0,0.35)]' : 'shadow-[0_6px_12px_rgba(0,0,0,0.25)]'}`}
-                style={{ backgroundColor: room.gameMode === 'flip' ? '#ffffff' : '#0f172a' }}
+                className={`absolute inset-0 rounded-[7px] sm:rounded-[12px] overflow-hidden flex items-center justify-center ${room.gameMode === 'flip' ? 'shadow-[0_16px_36px_-4px_rgba(0,0,0,0.55),0_6px_12px_rgba(0,0,0,0.35)]' : 'shadow-[0_6px_12px_rgba(0,0,0,0.25)]'}`}
+                style={{ backgroundColor: '#ffffff' }}
               >
                 <img
                   src={room.gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png'}
