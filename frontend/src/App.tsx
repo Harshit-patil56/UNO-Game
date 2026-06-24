@@ -168,6 +168,12 @@ const getActiveCardFaceFrontend = (cardId: string, side: 'light' | 'dark' = 'lig
   return side === 'dark' ? mapping[index].dark : mapping[index].light;
 };
 
+// Number index to word name for UNO Flip assets
+const FLIP_NUM_WORD: Record<string, string> = {
+  '1': 'ONE', '2': 'TWO', '3': 'THREE', '4': 'FOUR', '5': 'FIVE',
+  '6': 'SIX', '7': 'SEVEN', '8': 'EIGHT', '9': 'NINE'
+};
+
 const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameMode: 'classic' | 'flip' = 'classic'): string => {
   if (!cardId) {
     return '/cards/Deck.png';
@@ -175,6 +181,76 @@ const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameM
 
   const face = getActiveCardFaceFrontend(cardId, side, gameMode);
 
+  // ── UNO FLIP mode: use flip JPG assets ────────────────────────────────────
+  if (gameMode === 'flip') {
+    // Wild cards
+    if (face === 'WILD') {
+      return side === 'dark' ? '/cards/flip/DARK_WILD_CARD.jpg' : '/cards/flip/WILD_CARD.jpg';
+    }
+    if (face === 'WILD_DRAW_FOUR') {
+      return '/cards/flip/WILD_DRAW_FOUR.jpg';
+    }
+    if (face === 'WILD_DRAW_TWO') {
+      // Light-side flip wild draw two — use a representative image
+      return '/cards/flip/Blue_WILDTWO.jpg';
+    }
+    if (face === 'WILD_DRAW_COLOR') {
+      // Dark-side flip wild draw color — use a representative image
+      return '/cards/flip/Orange_WILD_DRAW_COLOR.jpg';
+    }
+
+    const flipParts = face.split('_');
+    if (flipParts.length < 2) return '/cards/flip/TOP_CARD.jpg';
+
+    // Capitalize color (e.g. RED → Red, ORANGE → Orange)
+    const flipColor = flipParts[0].charAt(0).toUpperCase() + flipParts[0].slice(1).toLowerCase();
+
+    // Number cards: NUMBER_1 → ONE, NUMBER_2 → TWO … NUMBER_9 → NINE
+    if (flipParts[1] === 'NUMBER' && flipParts[2]) {
+      const word = FLIP_NUM_WORD[flipParts[2]];
+      if (word) return `/cards/flip/${flipColor}_${word}.jpg`;
+    }
+    // Skip (light) → {Color}_SKIP.jpg
+    if (flipParts[1] === 'SKIP' && flipParts.length === 2) {
+      return `/cards/flip/${flipColor}_SKIP.jpg`;
+    }
+    // Skip Everyone (dark) → {Color}_SKIP_EVERYONE.jpg
+    if (flipParts[1] === 'SKIP' && flipParts[2] === 'EVERYONE') {
+      return `/cards/flip/${flipColor}_SKIP_EVERYONE.jpg`;
+    }
+    // Reverse → {Color}_REVERSE.jpg
+    if (flipParts[1] === 'REVERSE') {
+      return `/cards/flip/${flipColor}_REVERSE.jpg`;
+    }
+    // Draw Two (light) → {Color}_DRAW_TWO.jpg
+    if (flipParts[1] === 'DRAW' && flipParts[2] === 'TWO') {
+      return `/cards/flip/${flipColor}_DRAW_TWO.jpg`;
+    }
+    // Draw One (light flip action) → {Color}_DRAW_TWO.jpg (matches the light-side draw card image)
+    if (flipParts[1] === 'DRAW' && flipParts[2] === 'ONE') {
+      return `/cards/flip/${flipColor}_DRAW_TWO.jpg`;
+    }
+    // Draw Five (dark) → {Color}_DRAW_FIVE.jpg
+    if (flipParts[1] === 'DRAW' && flipParts[2] === 'FIVE') {
+      return `/cards/flip/${flipColor}_DRAW_FIVE.jpg`;
+    }
+    // Flip card → {Color}_FLIP.jpg
+    if (flipParts[1] === 'FLIP') {
+      return `/cards/flip/${flipColor}_FLIP.jpg`;
+    }
+    // Wild Draw Two per-color (light) → {Color}_WILDTWO.jpg
+    if (flipParts[1] === 'WILDTWO') {
+      return `/cards/flip/${flipColor}_WILDTWO.jpg`;
+    }
+    // Wild Draw Color per-color (dark) → {Color}_WILD_DRAW_COLOR.jpg
+    if (flipParts[1] === 'WILD' && flipParts[2] === 'DRAW' && flipParts[3] === 'COLOR') {
+      return `/cards/flip/${flipColor}_WILD_DRAW_COLOR.jpg`;
+    }
+
+    return '/cards/flip/TOP_CARD.jpg';
+  }
+
+  // ── CLASSIC mode: use original PNG assets ─────────────────────────────────
   if (face === 'WILD') {
     return '/cards/Wild.png';
   }
@@ -230,21 +306,44 @@ const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameM
 
 export function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'light', gameMode = 'classic', disabled = false, style }: UnoCardProps) {
   const assetUrl = useMemo(() => {
-    if (isBack) return '/cards/Deck.png';
+    if (isBack) {
+      return gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png';
+    }
     return getCardAssetUrl(cardId, side, gameMode);
   }, [cardId, isBack, side, gameMode]);
 
+  // Cropped aspect ratio is 300 / 482 ≈ 0.6224.
+  // Standard card height is h-36 = 144px.
+  // flipWidth = 144 * (300 / 482) = 89.6 ≈ 90px.
+  const flipWidth = Math.round(144 * (300 / 482));
+
   return (
     <motion.div
-      style={style}
+      style={
+        gameMode === 'flip'
+          ? { ...style, width: `${flipWidth}px`, backgroundColor: '#ffffff' }
+          : style
+      }
       whileHover={disabled ? {} : { scale: 1.08, y: -16, zIndex: 60, transition: { type: 'spring', stiffness: 300, damping: 15 } }}
       onClick={disabled ? undefined : onClick}
-      className={`w-24 h-36 rounded-[12px] relative overflow-hidden select-none flex-shrink-0 cursor-pointer transition-shadow duration-200 hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)] ${className} ${disabled ? 'opacity-85 cursor-not-allowed' : ''}`}
+      className={`h-36 rounded-[12px] relative overflow-hidden select-none flex-shrink-0 cursor-pointer transition-shadow duration-200 ${gameMode === 'flip' ? 'shadow-[0_6px_18px_-2px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] hover:shadow-[0_12px_28px_-4px_rgba(0,0,0,0.65),0_4px_10px_rgba(0,0,0,0.4)]' : 'w-24 hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)]'} ${className} ${disabled ? 'opacity-85 cursor-not-allowed' : ''}`}
     >
       <img
         src={assetUrl}
         alt={isBack ? 'Card Back' : cardId}
-        className="w-full h-full object-contain pointer-events-none"
+        className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full object-contain pointer-events-none'}
+        style={
+          gameMode === 'flip'
+            ? {
+                width: '111.30%',
+                height: '107.04%',
+                left: '-4.98%',
+                top: '-3.52%',
+                maxWidth: 'none',
+                maxHeight: 'none',
+              }
+            : {}
+        }
       />
     </motion.div>
   );
@@ -500,9 +599,9 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
   const middle = (visibleCards - 1) / 2;
 
   const isDarkSide = gameMode === 'flip' && side === 'dark';
-  const cardBackFilter = isDarkSide
-    ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)'
-    : 'none';
+  const cardBackSrc = gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png';
+  // Apply a subtle dark overlay filter for the dark side to visually distinguish it
+  const cardBackFilter = isDarkSide ? 'brightness(0.85)' : 'none';
 
   let cardW = isMobile ? 44 : 72;
   let cardH = isMobile ? 64 : 104;
@@ -519,6 +618,11 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
     cardH = isMobile ? 52 : 80;
     maxFanWidth = isMobile ? 100 : 160;
     bottomOffset = isMobile ? 10 : 16;
+  }
+
+  // For flip cards, correct width to match image's true cropped AR (300/482 ≈ 0.6224)
+  if (gameMode === 'flip') {
+    cardW = Math.round(cardH * (300 / 482));
   }
 
   const defaultSpacing = isVeryShort ? (isMobile ? 8 : 12) : (isShort ? (isMobile ? 10 : 16) : (isMobile ? 14 : 22));
@@ -568,15 +672,28 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
         return (
           <div key={idx} style={outerStyle} className="relative flex-shrink-0">
             <div
-              className="w-full h-full rounded-[6px] border-2 border-[#0f172a] shadow-[1px_2px_4px_rgba(0,0,0,0.18)] bg-white overflow-hidden transition-all duration-300"
+              className={`w-full h-full relative rounded-[6px] border-2 border-[#0f172a] overflow-hidden transition-all duration-300 ${gameMode === 'flip' ? 'shadow-[0_4px_12px_-1px_rgba(0,0,0,0.6),0_1px_4px_rgba(0,0,0,0.35)]' : 'shadow-[1px_2px_4px_rgba(0,0,0,0.18)]'}`}
               style={{
+                backgroundColor: '#ffffff', // Always white background so card rounded corner blend is clean
                 WebkitBoxReflect: 'below 1px linear-gradient(transparent 75%, rgba(255, 255, 255, 0.12))',
               }}
             >
               <img
-                src="/cards/Deck.png"
+                src={cardBackSrc}
                 alt="Card Back"
-                className="w-full h-full object-contain pointer-events-none select-none"
+                className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full pointer-events-none select-none object-contain'}
+                style={
+                  gameMode === 'flip'
+                    ? {
+                        width: '111.30%',
+                        height: '107.04%',
+                        left: '-4.98%',
+                        top: '-3.52%',
+                        maxWidth: 'none',
+                        maxHeight: 'none',
+                      }
+                    : {}
+                }
               />
             </div>
             {isTopCard && cardCount > 15 && (
@@ -806,21 +923,33 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
   }, [room?.discardPileTop, room?.discardPileSize, lastPlayedCardKey]);
 
   const targetH = isMobile ? 130 : 220;
-  const targetW = targetH * 0.69;
+  const targetW = gameMode === 'flip' ? Math.round(targetH * (300 / 482)) : Math.round(targetH * 0.69);
 
   return (
     <div
       id="discard-pile-drop-zone"
-      className="relative flex items-center justify-center w-[90px] h-[130px] sm:w-[152px] sm:h-[220px] transition-all duration-150 ease-out"
+      className="relative flex items-center justify-center transition-all duration-150 ease-out"
+      style={{
+        width: gameMode === 'flip' ? (isMobile ? '81px' : '137px') : (isMobile ? '90px' : '152px'),
+        height: isMobile ? '130px' : '220px',
+      }}
     >
       <div className="relative w-full h-full">
         {discardHistory.map((card, i) => {
           const isTop = i === discardHistory.length - 1;
-          const shadowStyle = isTop
+          let shadowStyle = isTop
             ? '0 14px 28px rgba(0,0,0,0.32), 0 5px 10px rgba(0,0,0,0.22)'
             : '0 4px 8px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.12)';
 
-          const assetUrl = getCardAssetUrl(card.cardId, side, gameMode);
+          if (gameMode === 'flip') {
+            shadowStyle = isTop
+              ? '0 20px 40px -4px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.35)'
+              : '0 6px 16px -2px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.2)';
+          }
+
+          const assetUrl = card.cardId === 'DECK_BACK'
+            ? (gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png')
+            : getCardAssetUrl(card.cardId, side, gameMode);
 
           return (
             <motion.div
@@ -834,6 +963,7 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
                 transformOrigin: 'center center',
                 zIndex: i,
                 boxShadow: shadowStyle,
+                backgroundColor: '#ffffff', // Always white so cropped card corner blend is clean
                 borderRadius: isMobile ? '7px' : '12px',
                 overflow: 'hidden',
                 backfaceVisibility: 'hidden',
@@ -857,13 +987,19 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
               <img
                 src={assetUrl}
                 alt={card.cardId}
-                className="w-full h-full object-contain pointer-events-none select-none"
-                style={{
-                  imageRendering: 'auto',
-                  filter: card.cardId === 'DECK_BACK' && gameMode === 'flip' && side === 'dark'
-                    ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)'
-                    : 'none'
-                }}
+                className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full object-contain pointer-events-none select-none'}
+                style={
+                  gameMode === 'flip'
+                    ? {
+                        width: '111.30%',
+                        height: '107.04%',
+                        left: '-4.98%',
+                        top: '-3.52%',
+                        maxWidth: 'none',
+                        maxHeight: 'none',
+                      }
+                    : {}
+                }
               />
             </motion.div>
           );
@@ -1104,7 +1240,9 @@ function HandCanvas({
   } else if (isShort) {
     targetH = isMobile ? 110 : 160;
   }
-  const targetW = targetH * 0.69;
+  // Cropped aspect ratio is 300 / 482 ≈ 0.6224.
+  const FLIP_AR = 300 / 482;
+  const targetW = gameMode === 'flip' ? Math.round(targetH * FLIP_AR) : Math.round(targetH * 0.69);
 
   let spacing = isMobile
     ? Math.max(25, 45 - count)
@@ -1184,9 +1322,16 @@ function HandCanvas({
         let zIndex = isSelected ? 200 + i : i;
 
         let shadowStyle = 'drop-shadow(3.54px 3.54px 4px rgba(0,0,0,0.2))';
-        if (isDragging) shadowStyle = 'drop-shadow(12px 18px 10px rgba(0,0,0,0.3))';
-        else if (isSelected) shadowStyle = 'drop-shadow(5px 8px 6px rgba(0,0,0,0.25))';
-        else if (isHovered) shadowStyle = 'drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))';
+        if (gameMode === 'flip') {
+          if (isDragging) shadowStyle = 'drop-shadow(0px 18px 22px rgba(0,0,0,0.45)) drop-shadow(0px 8px 8px rgba(0,0,0,0.3))';
+          else if (isSelected) shadowStyle = 'drop-shadow(0px 10px 16px rgba(0,0,0,0.38)) drop-shadow(0px 4px 6px rgba(0,0,0,0.22))';
+          else if (isHovered) shadowStyle = 'drop-shadow(0px 6px 12px rgba(0,0,0,0.35)) drop-shadow(0px 2px 4px rgba(0,0,0,0.2))';
+          else shadowStyle = 'drop-shadow(0px 3px 8px rgba(0,0,0,0.3)) drop-shadow(0px 1px 3px rgba(0,0,0,0.18))';
+        } else {
+          if (isDragging) shadowStyle = 'drop-shadow(12px 18px 10px rgba(0,0,0,0.3))';
+          else if (isSelected) shadowStyle = 'drop-shadow(5px 8px 6px rgba(0,0,0,0.25))';
+          else if (isHovered) shadowStyle = 'drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))';
+        }
 
         const isPlayable = validatePlayableClient(cardId);
 
@@ -1215,7 +1360,7 @@ function HandCanvas({
               filter: shadowStyle,
               borderRadius: isMobile ? '7px' : '12px',
               overflow: 'hidden',
-              backgroundColor: room?.side === 'dark' ? '#18181b' : '#ffffff',
+              backgroundColor: '#ffffff', // Always white so cropped card corner blend is clean
             }}
             animate={{
               x: isShaking ? [-8, 8, -6, 6, 0] : 0,
@@ -1247,8 +1392,20 @@ function HandCanvas({
             <motion.img
               src={assetUrl}
               alt={cardId}
-              className="w-full h-full object-contain pointer-events-none select-none"
-              style={{ imageRendering: 'pixelated' }}
+              className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full pointer-events-none select-none object-contain'}
+              style={{
+                imageRendering: gameMode === 'flip' ? 'auto' : 'pixelated',
+                ...(gameMode === 'flip'
+                  ? {
+                      width: '111.30%',
+                      height: '107.04%',
+                      left: '-4.98%',
+                      top: '-3.52%',
+                      maxWidth: 'none',
+                      maxHeight: 'none',
+                    }
+                  : {}),
+              }}
               animate={{
                 opacity: isPlayable ? 1.0 : (isDragging ? 0.8 : (isHovered ? 0.65 : 0.45)),
                 filter: isPlayable ? 'none' : 'grayscale(35%) brightness(0.85)',
@@ -1612,9 +1769,10 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
 let serverTimeOffset = 0;
 
 function App() {
-  const { height } = useWindowSize();
+  const { width, height } = useWindowSize();
   const isShort = height < 680;
   const isVeryShort = height < 520;
+  const isMobile = width < 640;
 
   const [view, setView] = useState<'main' | 'friends' | 'computer' | 'lobby' | 'game'>(() => {
     try {
@@ -3311,7 +3469,11 @@ function App() {
             {/* Draw Pile (Clickable to draw a card) */}
             <div
               onClick={() => socket.emit('draw_card', { roomId: room.roomId })}
-              className="relative cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 w-[90px] h-[130px] sm:w-[152px] sm:h-[220px]"
+              className="relative cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 flex-shrink-0"
+              style={{
+                width: room.gameMode === 'flip' ? (isMobile ? '81px' : '137px') : (isMobile ? '90px' : '152px'),
+                height: isMobile ? '130px' : '220px',
+              }}
               title="Draw Card"
             >
               <div
@@ -3329,18 +3491,28 @@ function App() {
                 }}
               />
               <div
-                className="absolute inset-0 bg-[#0f172a] rounded-[7px] sm:rounded-[12px] overflow-hidden border-3 border-[#0f172a] flex items-center justify-center shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
+                className={`absolute inset-0 rounded-[7px] sm:rounded-[12px] overflow-hidden border-3 border-[#0f172a] flex items-center justify-center ${room.gameMode === 'flip' ? 'shadow-[0_16px_36px_-4px_rgba(0,0,0,0.55),0_6px_12px_rgba(0,0,0,0.35)]' : 'shadow-[0_6px_12px_rgba(0,0,0,0.25)]'}`}
+                style={{ backgroundColor: room.gameMode === 'flip' ? '#ffffff' : '#0f172a' }}
               >
                 <img
-                  src="/cards/Deck.png"
+                  src={room.gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png'}
                   alt="Draw Deck"
-                  className="w-full h-full object-contain pointer-events-none"
-                  style={{
-                    imageRendering: 'pixelated',
-                    filter: room.gameMode === 'flip' && room.side === 'dark'
-                      ? 'hue-rotate(145deg) brightness(0.7) contrast(1.1)'
-                      : 'none'
-                  }}
+                  className={room.gameMode === 'flip' ? 'absolute pointer-events-none' : 'w-full h-full pointer-events-none object-contain'}
+                  style={
+                    room.gameMode === 'flip'
+                      ? {
+                          width: '111.30%',
+                          height: '107.04%',
+                          left: '-4.98%',
+                          top: '-3.52%',
+                          maxWidth: 'none',
+                          maxHeight: 'none',
+                          imageRendering: 'auto',
+                        }
+                      : {
+                          imageRendering: 'pixelated',
+                        }
+                  }
                 />
               </div>
             </div>
