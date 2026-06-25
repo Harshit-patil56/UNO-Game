@@ -444,6 +444,50 @@ try {
   assert(gameWithMercyKO.eliminatedPlayers.includes('P1'), 'Alice is eliminated by the Mercy Rule');
   assert(gameWithMercyKO.winner === 'P2', 'Bob is declared the winner since only one active player remains');
 
+  // Test Mercy Mode Draw-Until-Playable
+  const gameWithDrawUntilPlayable = {
+    roomId: 'DRAW_UNTIL_PLAYABLE_TEST',
+    hostId: 'P1',
+    gameStarted: true,
+    winner: null,
+    gameMode: 'mercy',
+    players: [
+      { id: 'P1', name: 'Alice', hand: ['BLUE_NUMBER_1'], isDisconnected: false },
+      { id: 'P2', name: 'Bob', hand: ['GREEN_NUMBER_2'], isDisconnected: false }
+    ],
+    deck: ['BLUE_NUMBER_5', 'YELLOW_NUMBER_8', 'YELLOW_NUMBER_9'],
+    discardPile: ['BLUE_NUMBER_0'],
+    currentTurn: 0,
+    direction: 1,
+    currentColor: 'BLUE',
+    drawStack: null,
+    unoStates: {},
+    unoCatchablePlayerId: null,
+    drawnPlayableCard: null,
+    pendingChallenge: null,
+    eliminatedPlayers: []
+  };
+
+  let drawRes1 = drawCard(gameWithDrawUntilPlayable, 'P1');
+  assert(drawRes1.card === 'YELLOW_NUMBER_9', 'Drew non-playable card');
+  assert(drawRes1.isPlayable === false, 'Is not playable');
+  assert(gameWithDrawUntilPlayable.currentTurn === 0, 'Turn stays on P1 in Mercy mode after non-playable draw');
+
+  let drawRes2 = drawCard(gameWithDrawUntilPlayable, 'P1');
+  assert(drawRes2.card === 'YELLOW_NUMBER_8', 'Drew non-playable card again');
+  assert(drawRes2.isPlayable === false, 'Is not playable');
+  assert(gameWithDrawUntilPlayable.currentTurn === 0, 'Turn stays on P1 again');
+
+  let drawRes3 = drawCard(gameWithDrawUntilPlayable, 'P1');
+  assert(drawRes3.card === 'BLUE_NUMBER_5', 'Drew playable card');
+  assert(drawRes3.isPlayable === true, 'Is playable');
+  assert(gameWithDrawUntilPlayable.currentTurn === 0, 'Turn stays on P1 for them to play or pass');
+  assert(gameWithDrawUntilPlayable.drawnPlayableCard === 'BLUE_NUMBER_5', 'drawnPlayableCard state is tracked');
+
+  // Verify player can draw again even after a playable card is drawn (no restriction)
+  let drawRes4 = drawCard(gameWithDrawUntilPlayable, 'P1');
+  assert(drawRes4.card === null, 'Allowed to draw again (returns null card since deck is empty)');
+
   // Test Wild Roulette
   const gameWithRoulette = {
     roomId: 'ROULETTE_TEST',

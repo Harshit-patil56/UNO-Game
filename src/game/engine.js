@@ -120,11 +120,16 @@ export function drawCard(gameState, playerId) {
   const drawStack = gameState.gameMode === 'mercy' ? gameState.drawStack : null;
   const isPlayable = validatePlayable(activeFace, activeTopFace, gameState.currentColor, drawStack);
 
-  // If not playable, turn immediately passes to next player
+  // If not playable, turn passes or player draws again
   if (!isPlayable) {
-    // Reset UNO catchable state from previous turn
-    gameState.unoCatchablePlayerId = null;
-    gameState.currentTurn = getNextActivePlayerIndex(gameState, gameState.currentTurn, 1);
+    if (gameState.gameMode === 'mercy') {
+      // In No Mercy, players draw one-by-one until they draw a playable card or get eliminated at 25 cards
+      checkMercyElimination(gameState);
+    } else {
+      // Reset UNO catchable state from previous turn
+      gameState.unoCatchablePlayerId = null;
+      gameState.currentTurn = getNextActivePlayerIndex(gameState, gameState.currentTurn, 1);
+    }
   } else {
     // Player has drawn a playable card. They can choose to play it (in the same turn) or pass.
     // We mark that this drawn card is playable on their current turn.
