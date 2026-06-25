@@ -20,9 +20,12 @@ import {
   resolveChallenge,
   callUno,
   catchUno,
-  drawPenalty
+  drawPenalty,
+  checkMercyElimination,
+  resolveSevenSwap,
+  getNextActivePlayerIndex
 } from '../game/engine.js';
-import { createDeck, shuffleDeck, createFlipDeck, getActiveCardFace, dealCards } from '../game/deck.js';
+import { createDeck, shuffleDeck, createFlipDeck, createMercyDeck, getActiveCardFace, dealCards } from '../game/deck.js';
 import { normalizeCard } from '../game/normalizer.js';
 import { nextTurn, skipTurn } from '../game/turnManager.js';
 
@@ -144,7 +147,7 @@ export function startRoomTurnTimer(io, roomId) {
         try {
           currentRoom.drawnPlayableCard = null;
           currentRoom.unoCatchablePlayerId = null;
-          currentRoom.currentTurn = nextTurn(currentRoom.currentTurn, currentRoom.direction, currentRoom.players.length);
+          currentRoom.currentTurn = getNextActivePlayerIndex(currentRoom, currentRoom.currentTurn, 1);
           currentRoom.turnStartedAt = Date.now();
           logToFile(`Forcefully advanced turn fallback to turn index ${currentRoom.currentTurn}`);
         } catch (e) {
@@ -263,17 +266,39 @@ export function scheduleBotTurn(io, roomId) {
       } else if (decision.action === 'accept_challenge') {
         try {
           const challenge = currentRoom.pendingChallenge;
+          const playedPlayer = currentRoom.players.find(p => p.id === challenge?.playedBy);
+          const playedPlayerHand = playedPlayer ? [...playedPlayer.hand] : [];
           const outcome = resolveChallenge(currentRoom, activePlayer.id, false);
           currentRoom.turnStartedAt = Date.now();
+          // Check mercy elimination after challenge draw
+          if (currentRoom.gameMode === 'mercy') {
+            checkMercyElimination(currentRoom);
+          }
           io.to(roomId).emit('challenge_resolved', {
             challengerId: activePlayer.id,
             wantsToChallenge: false,
             playedBy: challenge?.playedBy,
             targetPlayerId: challenge?.targetPlayerId,
+            playedPlayerHand,
+            colorBeforePlay: challenge?.colorBeforePlay,
             ...outcome
           });
         } catch (err) {
           logToFile(`Bot challenge error: ${err.message}`);
+        }
+      } else if (decision.action === 'seven_swap') {
+        try {
+          const outcome = resolveSevenSwap(currentRoom, activePlayer.id, decision.targetPlayerId);
+          currentRoom.turnStartedAt = Date.now();
+          if (outcome.winner) {
+            currentRoom.winner = outcome.winner;
+          }
+        } catch (err) {
+          logToFile(`Bot seven swap error: ${err.message}`);
+          // Fallback: advance turn
+          currentRoom.pendingSevenSwap = null;
+          currentRoom.currentTurn = getNextActivePlayerIndex(currentRoom, currentRoom.currentTurn, 1);
+          currentRoom.turnStartedAt = Date.now();
         }
       }
 
@@ -389,7 +414,7 @@ export function registerSocketHandlers(io, socket) {
       cpuRooms.add(room.roomId);
 
       // --- Start the game immediately ---
-      let deck = gameMode === 'flip' ? createFlipDeck() : createDeck();
+      let deck = gameMode === 'flip' ? createFlipDeck() : (gameMode === 'mercy' ? createMercyDeck() : createDeck());
       deck = shuffleDeck(deck);
 
       const playerIds = room.players.map(p => p.id);
@@ -405,6 +430,15 @@ export function registerSocketHandlers(io, socket) {
       if (gameMode === 'flip') {
         let activeFace = getActiveCardFace(topCard, 'light', gameMode);
         while (activeFace === 'WILD_DRAW_TWO') {
+          room.deck.unshift(topCard);
+          room.deck = shuffleDeck(room.deck);
+          topCard = room.deck.pop();
+          activeFace = getActiveCardFace(topCard, 'light', gameMode);
+        }
+      } else if (gameMode === 'mercy') {
+        // Mercy: re-draw if top card is a wild draw type
+        let activeFace = getActiveCardFace(topCard, 'light', gameMode);
+        while (['WILD_DRAW_SIX', 'WILD_DRAW_TEN', 'WILD_ROULETTE', 'WILD_DRAW_FOUR'].includes(activeFace)) {
           room.deck.unshift(topCard);
           room.deck = shuffleDeck(room.deck);
           topCard = room.deck.pop();
@@ -435,6 +469,12 @@ export function registerSocketHandlers(io, socket) {
       room.pendingDraw = 0;
       room.gameStarted = true;
       room.side = 'light';
+      // Initialize mercy-specific state
+      if (gameMode === 'mercy') {
+        room.drawStack = { count: 0, minValue: 0 };
+        room.pendingSevenSwap = null;
+        room.eliminatedPlayers = [];
+      }
 
       room.players.forEach(p => {
         room.unoStates[p.id] = false;
@@ -585,7 +625,7 @@ export function registerSocketHandlers(io, socket) {
       }
 
       // Initialize Deck & Shuffle
-      let deck = room.gameMode === 'flip' ? createFlipDeck() : createDeck();
+      let deck = room.gameMode === 'flip' ? createFlipDeck() : room.gameMode === 'mercy' ? createMercyDeck() : createDeck();
       deck = shuffleDeck(deck);
 
       // Deal 7 cards to each player
@@ -602,6 +642,14 @@ export function registerSocketHandlers(io, socket) {
       if (room.gameMode === 'flip') {
         let activeFace = getActiveCardFace(topCard, 'light', room.gameMode);
         while (activeFace === 'WILD_DRAW_TWO') {
+          room.deck.unshift(topCard);
+          room.deck = shuffleDeck(room.deck);
+          topCard = room.deck.pop();
+          activeFace = getActiveCardFace(topCard, 'light', room.gameMode);
+        }
+      } else if (room.gameMode === 'mercy') {
+        let activeFace = getActiveCardFace(topCard, 'light', room.gameMode);
+        while (['WILD_DRAW_SIX', 'WILD_DRAW_TEN', 'WILD_ROULETTE', 'WILD_DRAW_FOUR'].includes(activeFace)) {
           room.deck.unshift(topCard);
           room.deck = shuffleDeck(room.deck);
           topCard = room.deck.pop();
@@ -635,6 +683,12 @@ export function registerSocketHandlers(io, socket) {
       room.pendingDraw = 0;
       room.gameStarted = true;
       room.side = 'light'; // Always start on Light side
+      // Initialize mercy-specific state
+      if (room.gameMode === 'mercy') {
+        room.drawStack = { count: 0, minValue: 0 };
+        room.pendingSevenSwap = null;
+        room.eliminatedPlayers = [];
+      }
 
       // Reset all Uno States
       room.players.forEach(p => {
@@ -709,6 +763,9 @@ export function registerSocketHandlers(io, socket) {
       room.unoCatchablePlayerId = null;
       room.drawnPlayableCard = null;
       room.pendingChallenge = null;
+      room.drawStack = { count: 0, minValue: 0 };
+      room.pendingSevenSwap = null;
+      room.eliminatedPlayers = [];
       
       // Reset player hands and ready status
       room.players.forEach(p => {
@@ -738,6 +795,11 @@ export function registerSocketHandlers(io, socket) {
 
       const result = playCard(room, session.playerId, cardId, chosenColor);
       room.turnStartedAt = Date.now();
+
+      // Check mercy elimination after playing draw cards
+      if (room.gameMode === 'mercy' && !room.winner) {
+        checkMercyElimination(room);
+      }
       
       broadcastState(io, room);
 
@@ -767,8 +829,20 @@ export function registerSocketHandlers(io, socket) {
       if (!room) return sendError('Room not found');
 
       const activePlayerBefore = room.players[room.currentTurn]?.id;
-      drawCard(room, session.playerId);
+      const drawResult = drawCard(room, session.playerId);
       const activePlayerAfter = room.players[room.currentTurn]?.id;
+
+      // Check mercy elimination after any draw
+      if (room.gameMode === 'mercy' && !room.winner) {
+        checkMercyElimination(room);
+      }
+
+      if (room.winner) {
+        clearRoomTurnTimer(room.roomId);
+        io.to(room.roomId).emit('game_ended', { winnerId: room.winner });
+        broadcastState(io, room);
+        return;
+      }
 
       if (activePlayerBefore !== activePlayerAfter) {
         room.turnStartedAt = Date.now();
@@ -780,6 +854,7 @@ export function registerSocketHandlers(io, socket) {
       sendError(err.message);
     }
   });
+
 
   // 7. Pass Turn (After drawing a card)
   socket.on('pass_turn', ({ roomId }) => {
@@ -816,8 +891,15 @@ export function registerSocketHandlers(io, socket) {
       if (!room) return sendError('Room not found');
 
       const challenge = room.pendingChallenge;
+      const playedPlayer = room.players.find(p => p.id === challenge?.playedBy);
+      const playedPlayerHand = playedPlayer ? [...playedPlayer.hand] : [];
       const outcome = resolveChallenge(room, session.playerId, wantsToChallenge);
       room.turnStartedAt = Date.now();
+
+      // Check mercy elimination after any draw penalty
+      if (room.gameMode === 'mercy') {
+        checkMercyElimination(room);
+      }
       
       // Notify the room of the challenge outcome
       io.to(room.roomId).emit('challenge_resolved', {
@@ -825,8 +907,48 @@ export function registerSocketHandlers(io, socket) {
         wantsToChallenge,
         playedBy: challenge?.playedBy,
         targetPlayerId: challenge?.targetPlayerId,
+        playedPlayerHand,
+        colorBeforePlay: challenge?.colorBeforePlay,
         ...outcome
       });
+
+      if (room.winner) {
+        clearRoomTurnTimer(room.roomId);
+        io.to(room.roomId).emit('game_ended', { winnerId: room.winner });
+      }
+
+      broadcastState(io, room);
+      if (!room.winner) {
+        startRoomTurnTimer(io, room.roomId);
+        scheduleBotTurn(io, room.roomId);
+      }
+    } catch (err) {
+      sendError(err.message);
+    }
+  });
+
+  // 8b. Resolve Seven Swap (No Mercy 7s rule)
+  socket.on('resolve_seven_swap', ({ roomId, targetPlayerId }) => {
+    try {
+      const token = socketToToken.get(socket.id);
+      const session = getSession(sessions, token);
+      if (!session || session.roomId !== roomId) {
+        return sendError('Unauthorized or invalid session');
+      }
+
+      const room = getRoom(roomId);
+      if (!room) return sendError('Room not found');
+      if (!room.pendingSevenSwap) return sendError('No pending seven swap');
+
+      const outcome = resolveSevenSwap(room, session.playerId, targetPlayerId);
+      room.turnStartedAt = Date.now();
+
+      if (outcome.winner) {
+        clearRoomTurnTimer(room.roomId);
+        io.to(room.roomId).emit('game_ended', { winnerId: outcome.winner });
+        broadcastState(io, room);
+        return;
+      }
 
       broadcastState(io, room);
       startRoomTurnTimer(io, room.roomId);
@@ -835,6 +957,7 @@ export function registerSocketHandlers(io, socket) {
       sendError(err.message);
     }
   });
+
 
   // 9. Call UNO (For oneself)
   socket.on('call_uno', ({ roomId }) => {

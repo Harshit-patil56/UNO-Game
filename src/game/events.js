@@ -27,6 +27,10 @@ export function redactGameState(gameState, recipientPlayerId) {
       ? gameState.drawnPlayableCard 
       : null, // Only reveal the drawn playable card to the active player
     pendingChallenge: gameState.pendingChallenge ? { ...gameState.pendingChallenge } : null,
+    // No Mercy exclusive state
+    drawStack: gameState.drawStack || { count: 0, minValue: 0 },
+    pendingSevenSwap: gameState.pendingSevenSwap ? { ...gameState.pendingSevenSwap } : null,
+    eliminatedPlayers: gameState.eliminatedPlayers || [],
     deckSize: gameState.deck.length,
     discardPileTop: gameState.discardPile[gameState.discardPile.length - 1] || null,
     discardPileSize: gameState.discardPile.length,

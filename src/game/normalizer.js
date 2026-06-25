@@ -23,6 +23,16 @@ export function normalizeCard(cardId) {
   if (cardId === 'WILD_DRAW_COLOR') {
     return { color: 'WILD', type: 'WILD_DRAW_COLOR', value: null };
   }
+  // No Mercy wild cards
+  if (cardId === 'WILD_DRAW_SIX') {
+    return { color: 'WILD', type: 'WILD_DRAW_SIX', value: null };
+  }
+  if (cardId === 'WILD_DRAW_TEN') {
+    return { color: 'WILD', type: 'WILD_DRAW_TEN', value: null };
+  }
+  if (cardId === 'WILD_ROULETTE') {
+    return { color: 'WILD', type: 'WILD_ROULETTE', value: null };
+  }
 
   // Handle colored cards (e.g. BLUE_NUMBER_0, RED_SKIP, RED_REVERSE, YELLOW_DRAW_TWO)
   const parts = cardId.split('_');

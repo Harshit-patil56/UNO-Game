@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { Users, Cpu, ArrowLeft, Crown, Copy, Check, UserMinus, Settings, BookOpen, Volume2, VolumeX, LogOut, Megaphone, Zap } from 'lucide-react';
+import { Users, Cpu, ArrowLeft, Crown, Copy, Check, UserMinus, Settings, BookOpen, Volume2, VolumeX, LogOut, Megaphone, Zap, X } from 'lucide-react';
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
 import { io } from 'socket.io-client';
 import { BACKEND_URL } from './config';
 import confetti from 'canvas-confetti';
+
 
 // Audio cue synthesizer using AudioContext (fallback)
 const playGameEndSoundSynth = (isVictory: boolean) => {
@@ -58,28 +59,153 @@ const playGameEndSoundSynth = (isVictory: boolean) => {
   }
 };
 
+
+function getCardSoundFile(
+  cardId: string,
+  side: 'light' | 'dark' = 'light',
+  gameMode: 'classic' | 'flip' | 'mercy' = 'classic',
+  currentColor?: string,
+  _prevColor?: string
+): string {
+  try {
+    const face = getActiveCardFaceFrontend(cardId, side, gameMode);
+    const parts = face.split('_');
+
+    const type = parts[1];
+    const type2 = parts[2];
+
+    // Power cards: keep the m-0x character voice sounds
+    if (type === 'REVERSE') {
+      return '/sounds/sound effects/m-05-revers.mp3';
+    }
+    if (type === 'SKIP') {
+      return '/sounds/sound effects/m-06-skip.mp3';
+    }
+    if (type === 'DRAW' && type2 === 'TWO') {
+      return '/sounds/sound effects/m-07-draw2.mp3';
+    }
+    if (type === 'DRAW' && type2 === 'FOUR') {
+      return '/sounds/sound effects/m-08-draw4.mp3';
+    }
+
+
+    // Wild cards only: announce chosen color
+    if (face === 'WILD' || face.startsWith('WILD_')) {
+      const activeColor = currentColor || 'BLUE';
+      if (activeColor === 'RED' || activeColor === 'PINK') {
+        return '/sounds/sound effects/m-02-red.mp3';
+      }
+      if (activeColor === 'BLUE' || activeColor === 'PURPLE') {
+        return '/sounds/sound effects/m-04-blue.mp3';
+      }
+      if (activeColor === 'GREEN' || activeColor === 'TEAL') {
+        return '/sounds/sound effects/m-01-green.mp3';
+      }
+      if (activeColor === 'YELLOW' || activeColor === 'ORANGE') {
+        return '/sounds/sound effects/m-03-ylow.mp3';
+      }
+    }
+
+    // All other cards: original card whoosh sound
+    return '/sounds/card-play.mp3';
+  } catch (e) {
+    // fallback below
+  }
+  return '/sounds/card-play.mp3';
+}
+
 // Play public sound effects
-const playSoundEffect = (soundName: 'draw' | 'play' | 'shuffle' | 'win' | 'lose' | 'uno' | 'drag', enabled = true) => {
+function playSoundEffect(
+  soundName: 'draw' | 'play' | 'shuffle' | 'win' | 'lose' | 'uno' | 'drag' | 'turn' | 'invalid' | 'copy' | 'challenge' | 'stack' | 'knockout',
+  enabled = true,
+  cardId?: string,
+  gameMode?: 'classic' | 'flip' | 'mercy',
+  side?: 'light' | 'dark',
+  currentColor?: string,
+  prevColor?: string
+) {
   if (!enabled) return;
   try {
-    const audio = new Audio(`/sounds/${soundName === 'draw' ? 'card-draw' :
-      soundName === 'play' ? 'card-play' :
-        soundName === 'shuffle' ? 'card-shuffle' :
-          soundName === 'win' ? 'win' :
-            soundName === 'lose' ? 'lose' :
-              soundName === 'uno' ? 'uno-call' :
-                'card-drag'}.mp3`);
-    audio.volume = soundName === 'drag' ? 0.3 : 0.55;
-    audio.play().catch(e => console.warn(`Audio play for ${soundName} blocked or failed:`, e));
+    let filePath = '';
+    let volume = 0.65;
+    switch (soundName) {
+      case 'draw':
+        // Card draw sound (restored for penalty/stack draws)
+        filePath = '/sounds/card-draw.mp3';
+        volume = 0.6;
+        break;
+      case 'shuffle':
+        // Original card shuffle sound (restored)
+        filePath = '/sounds/card-shuffle.mp3';
+        volume = 0.6;
+        break;
+      case 'win':
+        filePath = '/sounds/win.mp3';
+        volume = 0.65;
+        break;
+      case 'lose':
+        filePath = '/sounds/lose.mp3';
+        volume = 0.65;
+        break;
+      case 'uno':
+        // Downloaded UNO character voice sound
+        filePath = '/sounds/sound effects/m-24-uno.mp3';
+        volume = 0.75;
+        break;
+      case 'drag':
+        // Original card drag sound (restored)
+        filePath = '/sounds/card-drag.mp3';
+        volume = 0.35;
+        break;
+      case 'turn':
+        // Player turn sound is completely disabled
+        break;
+      case 'invalid':
+        filePath = '/sounds/sound effects/m-18-oops.mp3';
+        volume = 0.55;
+        break;
+      case 'copy':
+        filePath = '/sounds/sound effects/m-22-coptat.mp3';
+        volume = 0.65;
+        break;
+      case 'challenge':
+        // Downloaded "call me" sound — fits catching someone without saying UNO
+        filePath = '/sounds/sound effects/m-11-callme.mp3';
+        volume = 0.7;
+        break;
+      case 'stack':
+        // Stacking sound is disabled to prevent sound clutter
+        break;
+      case 'knockout':
+        // Downloaded "no way" character voice sound - played when someone is eliminated by Mercy rule
+        filePath = '/sounds/sound effects/m-21-noway.mp3';
+        volume = 0.75;
+        break;
+      case 'play':
+        // Regular cards: original card whoosh; power cards: m-0x voice
+        if (cardId) {
+          filePath = getCardSoundFile(cardId, side, gameMode, currentColor, prevColor);
+        } else {
+          filePath = '/sounds/card-play.mp3';
+        }
+        volume = 0.65;
+        break;
+      default:
+        filePath = '/sounds/card-play.mp3';
+    }
+    if (!filePath) return;
+    const audio = new Audio(filePath);
+    audio.volume = volume;
+    audio.play().catch(e => console.warn(`Audio play for ${soundName} (${filePath}) blocked or failed:`, e));
   } catch (e) {
     console.warn(`Audio initialization for ${soundName} failed:`, e);
   }
-};
+}
 
-const playGameEndSound = (isVictory: boolean) => {
+function playGameEndSound(isVictory: boolean) {
   try {
-    const audio = new Audio(`/sounds/${isVictory ? 'win' : 'lose'}.mp3`);
-    audio.volume = 0.6;
+    const audio = new Audio(isVictory ? '/sounds/win.mp3' : '/sounds/lose.mp3');
+    audio.volume = 0.65;
     audio.play().catch((err) => {
       console.warn('MP3 game end sound failed, falling back to synth:', err);
       playGameEndSoundSynth(isVictory);
@@ -87,7 +213,7 @@ const playGameEndSound = (isVictory: boolean) => {
   } catch (e) {
     playGameEndSoundSynth(isVictory);
   }
-};
+}
 
 // Confetti fireworks loop helper
 const triggerVictoryConfetti = () => {
@@ -126,13 +252,13 @@ interface UnoCardProps {
   onClick?: () => void;
   className?: string;
   side?: 'light' | 'dark';
-  gameMode?: 'classic' | 'flip';
+  gameMode?: 'classic' | 'flip' | 'mercy';
   disabled?: boolean;
   style?: React.CSSProperties;
 }
 
-const getActiveCardFaceFrontend = (cardId: string, side: 'light' | 'dark' = 'light', gameMode: 'classic' | 'flip' = 'classic'): string => {
-  if (gameMode === 'classic') return cardId;
+const getActiveCardFaceFrontend = (cardId: string, side: 'light' | 'dark' = 'light', gameMode: 'classic' | 'flip' | 'mercy' = 'classic'): string => {
+  if (gameMode === 'classic' || gameMode === 'mercy') return cardId;
   if (!cardId || !cardId.startsWith('FLIP_CARD_')) return cardId;
   const index = parseInt(cardId.split('_')[2], 10);
   if (isNaN(index) || index < 0) return cardId;
@@ -174,12 +300,58 @@ const FLIP_NUM_WORD: Record<string, string> = {
   '6': 'SIX', '7': 'SEVEN', '8': 'EIGHT', '9': 'NINE'
 };
 
-const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameMode: 'classic' | 'flip' = 'classic'): string => {
+const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameMode: 'classic' | 'flip' | 'mercy' = 'classic'): string => {
   if (!cardId) {
     return '/cards/Deck.png';
   }
 
   const face = getActiveCardFaceFrontend(cardId, side, gameMode);
+
+  // ── UNO NO MERCY mode: use mercy WebP assets ───────────────────────────────
+  if (gameMode === 'mercy') {
+    // Wild cards
+    if (face === 'WILD') return '/cards/mercy/wild_roulette.webp'; // plain wild uses roulette art
+    if (face === 'WILD_DRAW_FOUR') return '/cards/mercy/wild_draw4.webp';
+    if (face === 'WILD_DRAW_SIX') return '/cards/mercy/wild_draw6.webp';
+    if (face === 'WILD_DRAW_TEN') return '/cards/mercy/wild_draw10.webp';
+    if (face === 'WILD_ROULETTE') return '/cards/mercy/wild_roulette.webp';
+
+    const mercyParts = face.split('_');
+    if (mercyParts.length < 2) return '/cards/mercy/wild_roulette.webp';
+
+    const mercyColor = mercyParts[0].toLowerCase(); // red, blue, green, yellow
+
+    // Number cards: RED_NUMBER_0 → red_0.webp
+    if (mercyParts[1] === 'NUMBER' && mercyParts[2] !== undefined) {
+      return `/cards/mercy/${mercyColor}_${mercyParts[2]}.webp`;
+    }
+    // Skip → {color}_skip.webp
+    if (mercyParts[1] === 'SKIP' && mercyParts.length === 2) {
+      return `/cards/mercy/${mercyColor}_skip.webp`;
+    }
+    // Skip All → {color}_skip_all.webp
+    if (mercyParts[1] === 'SKIP' && mercyParts[2] === 'ALL') {
+      return `/cards/mercy/${mercyColor}_skip_all.webp`;
+    }
+    // Reverse → {color}_reverse.webp
+    if (mercyParts[1] === 'REVERSE') {
+      return `/cards/mercy/${mercyColor}_reverse.webp`;
+    }
+    // Draw Two → {color}_draw2.webp
+    if (mercyParts[1] === 'DRAW' && mercyParts[2] === 'TWO') {
+      return `/cards/mercy/${mercyColor}_draw2.webp`;
+    }
+    // Draw Four (colored) → {color}_draw4.webp
+    if (mercyParts[1] === 'DRAW' && mercyParts[2] === 'FOUR') {
+      return `/cards/mercy/${mercyColor}_draw4.webp`;
+    }
+    // Discard All → {color}_discard_all.webp
+    if (mercyParts[1] === 'DISCARD' && mercyParts[2] === 'ALL') {
+      return `/cards/mercy/${mercyColor}_discard_all.webp`;
+    }
+
+    return '/cards/mercy/wild_roulette.webp'; // fallback
+  }
 
   // ── UNO FLIP mode: use flip JPG assets ────────────────────────────────────
   if (gameMode === 'flip') {
@@ -304,8 +476,17 @@ const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameM
   return '/cards/Deck.png';
 };
 
-const getPlayDirectionArrowColors = (activeColor: string) => {
-  const colorMap: Record<string, { stroke: string; glow: string }> = {
+const getPlayDirectionArrowColors = (activeColor: string, gameMode = 'classic') => {
+  const colorMap: Record<string, { stroke: string; glow: string }> = gameMode === 'mercy' ? {
+    RED: { stroke: 'rgba(255, 92, 92, 0.65)', glow: '#ff5c5c' },
+    BLUE: { stroke: 'rgba(75, 150, 230, 0.65)', glow: '#4b96e6' },
+    GREEN: { stroke: 'rgba(69, 175, 38, 0.65)', glow: '#45af26' },
+    YELLOW: { stroke: 'rgba(255, 212, 63, 0.65)', glow: '#ffd43f' },
+    PINK: { stroke: 'rgba(244, 114, 182, 0.65)', glow: '#f472b6' },
+    TEAL: { stroke: 'rgba(94, 234, 212, 0.65)', glow: '#5eead4' },
+    ORANGE: { stroke: 'rgba(251, 146, 60, 0.65)', glow: '#fb923c' },
+    PURPLE: { stroke: 'rgba(192, 132, 252, 0.65)', glow: '#c084fc' },
+  } : {
     RED: { stroke: 'rgba(255, 107, 107, 0.65)', glow: '#ff6b6b' },
     BLUE: { stroke: 'rgba(96, 165, 250, 0.65)', glow: '#60a5fa' },
     GREEN: { stroke: 'rgba(74, 222, 128, 0.65)', glow: '#4ade80' },
@@ -319,8 +500,8 @@ const getPlayDirectionArrowColors = (activeColor: string) => {
   return colorMap[activeColor?.toUpperCase()] || colorMap['GREEN'];
 };
 
-export const FLIP_AR = 327 / 505; // Cropped aspect ratio: 327 / 505 ≈ 0.6475
-export const FLIP_CROP_STYLE = {
+const FLIP_AR = 327 / 505; // Cropped aspect ratio: 327 / 505 ≈ 0.6475
+const FLIP_CROP_STYLE = {
   width: '102.44%',
   height: '102.38%',
   left: '-1.22%',
@@ -329,10 +510,12 @@ export const FLIP_CROP_STYLE = {
   maxHeight: 'none',
 };
 
-export function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'light', gameMode = 'classic', disabled = false, style }: UnoCardProps) {
+function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'light', gameMode = 'classic', disabled = false, style }: UnoCardProps) {
   const assetUrl = useMemo(() => {
     if (isBack) {
-      return gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png';
+      if (gameMode === 'flip') return '/cards/flip/TOP_CARD.jpg';
+      if (gameMode === 'mercy') return '/cards/mercy/card_back.webp'; // Use No Mercy card back
+      return '/cards/Deck.png';
     }
     return getCardAssetUrl(cardId, side, gameMode);
   }, [cardId, isBack, side, gameMode]);
@@ -340,26 +523,29 @@ export function UnoCard({ cardId, isBack = false, onClick, className = '', side 
   // Standard card height is h-36 = 144px.
   // flipWidth = 144 * FLIP_AR = 93.2px ≈ 93px.
   const flipWidth = Math.round(144 * FLIP_AR);
+  const MERCY_AR = 355 / 502;
+  const mercyWidth = Math.round(144 * MERCY_AR);
 
   return (
     <motion.div
       style={
         gameMode === 'flip'
-          ? { ...style, width: `${flipWidth}px`, backgroundColor: '#ffffff' }
-          : style
+          ? { ...style, width: `${flipWidth}px`, backgroundColor: side === 'dark' ? '#000000' : '#ffffff' }
+          : gameMode === 'mercy'
+            ? { ...style, width: `${mercyWidth}px`, backgroundColor: '#000000' }
+            : style
       }
       whileHover={disabled ? {} : { scale: 1.08, y: -16, zIndex: 60, transition: { type: 'spring', stiffness: 300, damping: 15 } }}
       onClick={disabled ? undefined : onClick}
-      className={`h-36 rounded-[12px] relative overflow-hidden select-none flex-shrink-0 cursor-pointer transition-shadow duration-200 ${
-        gameMode === 'flip'
-          ? 'shadow-[0_6px_18px_-2px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] hover:shadow-[0_12px_28px_-4px_rgba(0,0,0,0.65),0_4px_10px_rgba(0,0,0,0.4)]'
-          : 'w-24 hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)]'
-      } ${className} ${disabled ? 'opacity-85 cursor-not-allowed' : ''}`}
+      className={`h-36 rounded-[12px] relative overflow-hidden select-none flex-shrink-0 cursor-pointer transition-shadow duration-200 ${gameMode === 'flip' || gameMode === 'mercy'
+        ? 'shadow-[0_6px_18px_-2px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] hover:shadow-[0_12px_28px_-4px_rgba(0,0,0,0.65),0_4px_10px_rgba(0,0,0,0.4)]'
+        : 'w-24 hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)]'
+        } ${className} ${disabled ? 'opacity-85 cursor-not-allowed' : ''}`}
     >
       <img
         src={assetUrl}
         alt={isBack ? 'Card Back' : cardId}
-        className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full object-contain pointer-events-none'}
+        className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : gameMode === 'mercy' ? 'w-full h-full object-cover pointer-events-none select-none block' : 'w-full h-full object-contain pointer-events-none block'}
         style={gameMode === 'flip' ? FLIP_CROP_STYLE : {}}
       />
     </motion.div>
@@ -390,6 +576,16 @@ const normalizeCardClient = (cardId: string): NormalizedCardClient => {
   if (cardId === 'WILD_DRAW_COLOR') {
     return { color: 'WILD', type: 'WILD_DRAW_COLOR', value: null };
   }
+  // No Mercy wild cards
+  if (cardId === 'WILD_DRAW_SIX') {
+    return { color: 'WILD', type: 'WILD_DRAW_SIX', value: null };
+  }
+  if (cardId === 'WILD_DRAW_TEN') {
+    return { color: 'WILD', type: 'WILD_DRAW_TEN', value: null };
+  }
+  if (cardId === 'WILD_ROULETTE') {
+    return { color: 'WILD', type: 'WILD_ROULETTE', value: null };
+  }
 
   // Handle colored cards (e.g. BLUE_NUMBER_0, RED_SKIP, RED_REVERSE, YELLOW_DRAW_TWO)
   const parts = cardId.split('_');
@@ -409,9 +605,19 @@ const normalizeCardClient = (cardId: string): NormalizedCardClient => {
   return { color, type, value: null };
 };
 
-const validatePlayableClientLogic = (cardId: string, topDiscardCardId: string, currentColor: string): boolean => {
+const validatePlayableClientLogic = (cardId: string, topDiscardCardId: string, currentColor: string, drawStack?: { count: number; minValue: number } | null): boolean => {
   const card = normalizeCardClient(cardId);
   const topCard = normalizeCardClient(topDiscardCardId);
+
+  // In mercy mode with active draw stack: only stackable draw cards are playable
+  if (drawStack && drawStack.count > 0) {
+    const drawValues: Record<string, number> = {
+      'DRAW_TWO': 2, 'DRAW_FOUR': 4, 'WILD_DRAW_FOUR': 4,
+      'WILD_DRAW_SIX': 6, 'WILD_DRAW_TEN': 10
+    };
+    const cardVal = drawValues[card.type] || 0;
+    return cardVal >= drawStack.minValue && cardVal > 0;
+  }
 
   // Wild cards are always playable
   if (card.color === 'WILD') {
@@ -448,14 +654,30 @@ interface GamePlayerAvatarProps {
   isTurn?: boolean;
   isMe?: boolean;
   turnStartedAt?: number;
+  isEliminated?: boolean;
+  gameMode?: 'classic' | 'flip' | 'mercy';
+  side?: 'light' | 'dark';
+  position?: 'left' | 'right' | 'top' | 'player';
 }
 
-function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = false, turnStartedAt }: GamePlayerAvatarProps) {
+function GamePlayerAvatar({
+  name,
+  avatarSeed,
+  cardCount,
+  isTurn = false,
+  isMe = false,
+  turnStartedAt,
+  isEliminated = false,
+  gameMode = 'classic',
+  side = 'light',
+  position = 'top'
+}: GamePlayerAvatarProps) {
+  const isCardIndicatorBlack = gameMode === 'flip' && side === 'dark';
   const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
 
   // Reset and start countdown whenever this player's turn begins or turnStartedAt changes
   useEffect(() => {
-    if (!isTurn || !turnStartedAt) {
+    if (!isTurn || !turnStartedAt || isEliminated) {
       setTimeLeft(TURN_DURATION);
       return;
     }
@@ -474,7 +696,7 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isTurn, turnStartedAt]);
+  }, [isTurn, turnStartedAt, isEliminated]);
 
   const avatarUri = useMemo(() => {
     try {
@@ -488,13 +710,13 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
   }, [avatarSeed, name]);
 
   // Progress 1.0 = full, 0.0 = depleted
-  const progress = isTurn ? timeLeft / TURN_DURATION : 1;
+  const progress = isTurn && !isEliminated ? timeLeft / TURN_DURATION : 1;
   // Color: green > 50%, yellow 25-50%, red < 25%
   const ringColor = progress > 0.5 ? '#379711' : progress > 0.25 ? '#ecd407' : '#cc3333';
 
   return (
     <motion.div
-      animate={isTurn ? {
+      animate={isTurn && !isEliminated ? {
         y: [0, -20, 2, -2, 0],
         scale: [1, 1.15, 1.08, 1.1, 1.1],
       } : {
@@ -506,11 +728,11 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
         times: [0, 0.35, 0.55, 0.8, 1],
         ease: "easeInOut",
       }}
-      className={`flex flex-col items-center select-none ${!isTurn ? 'avatar-inactive' : 'avatar-active'
+      className={`flex flex-col items-center select-none ${(!isTurn || isEliminated) ? 'avatar-inactive' : 'avatar-active'
         }`}
     >
       {/* YOUR TURN pill: only shown for the local player when it's their turn */}
-      {isMe && isTurn && (
+      {isMe && isTurn && !isEliminated && (
         <div
           className="your-turn-badge mb-1.5 bg-[#cc3333] border-2 border-[#0f172a] rounded-[6px] px-3 py-1 shadow-[2px_2px_0_#0f172a] flex items-center"
         >
@@ -518,9 +740,9 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
         </div>
       )}
 
-      {/* Name Label Badge — red when active, teal otherwise */}
+      {/* Name Label Badge — grey when eliminated, red when active turn, teal otherwise */}
       <div
-        className={`border-2 border-white rounded-[8px] px-3.5 py-1.5 flex items-center justify-center min-w-[80px] transition-colors duration-300 ${isTurn ? 'bg-[#cc3333]' : 'bg-[#1e7b85]'
+        className={`border-2 border-white rounded-[8px] px-3.5 py-1.5 flex items-center justify-center min-w-[80px] transition-colors duration-300 ${isEliminated ? 'bg-[#94a3b8]' : isTurn ? 'bg-[#cc3333]' : 'bg-[#1e7b85]'
           }`}
       >
         <span className="text-white font-extrabold text-[10px] sm:text-xs tracking-wider truncate max-w-[85px] uppercase">
@@ -531,14 +753,32 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
       {/* Avatar Wrapper — sized to match avatar box so SVG inset-0 covers it exactly */}
       <div className="relative mt-2 w-[72px] h-[72px] sm:w-[88px] sm:h-[88px]">
 
-        <div 
-          className="w-full h-full bg-white border-[5px] sm:border-[6px] border-white overflow-hidden shadow-[0_8px_16px_rgba(0,0,0,0.15)]"
+        {/* Outer Avatar Image Container */}
+        <div
+          className="w-full h-full overflow-hidden shadow-[0_8px_16px_rgba(0,0,0,0.15)] bg-white border-[5px] sm:border-[6px] border-white"
           style={{ borderRadius: '22.5%' }}
         >
           {avatarUri && (
             <img src={avatarUri} alt={name} className="w-full h-full object-cover" />
           )}
         </div>
+
+        {/* Death Badge Icon for Eliminated Players */}
+        {isEliminated && (
+          <div
+            className={`absolute z-30 w-9 h-9 sm:w-11 sm:h-11 select-none pointer-events-none ${position === 'right'
+              ? '-bottom-2 -left-2'
+              : '-bottom-2 -right-2'
+              }`}
+          >
+            <img
+              src="/death_image.png"
+              alt="Dead"
+              className="w-full h-full object-contain"
+              style={{ filter: 'drop-shadow(1.5px 0px 0px #fff) drop-shadow(-1.5px 0px 0px #fff) drop-shadow(0px 1.5px 0px #fff) drop-shadow(0px -1.5px 0px #fff) drop-shadow(0px 2px 4px rgba(0,0,0,0.35))' }}
+            />
+          </div>
+        )}
 
         {/* SVG progress ring — depletes clockwise from top-right (badge position) */}
         {isTurn && (
@@ -575,16 +815,18 @@ function GamePlayerAvatar({ name, avatarSeed, cardCount, isTurn = false, isMe = 
         )}
 
         {/* Card Count Indicator Overlayed at the bottom right */}
-        <div className="absolute -right-3 -bottom-1.5 z-10">
-          <div className="relative w-8 h-10 sm:w-9 sm:h-11">
-            {/* Back card */}
-            <div className="absolute left-0.5 top-0.7 w-6.5 h-8.5 sm:w-7 sm:h-9 bg-white rounded-[4px] shadow-[0_1.5px_3px_rgba(0,0,0,0.25)] transform -rotate-6" />
-            {/* Top card */}
-            <div className="absolute left-1.5 top-0 w-6.5 h-8.5 sm:w-7 sm:h-9 bg-white rounded-[4px] shadow-[0_2px_4px_rgba(0,0,0,0.3)] flex items-center justify-center font-black text-xs text-[#0f172a] transform rotate-3 select-none">
-              {cardCount}
+        {!isEliminated && (
+          <div className="absolute -right-3 -bottom-1.5 z-10">
+            <div className="relative w-8 h-10 sm:w-9 sm:h-11">
+              {/* Back card */}
+              <div className={`absolute left-0.5 top-0.7 w-6.5 h-8.5 sm:w-7 sm:h-9 rounded-[4px] shadow-[0_1.5px_3px_rgba(0,0,0,0.25)] transform -rotate-6 ${isCardIndicatorBlack ? 'bg-black' : 'bg-white'}`} />
+              {/* Top card */}
+              <div className={`absolute left-1.5 top-0 w-6.5 h-8.5 sm:w-7 sm:h-9 rounded-[4px] shadow-[0_2px_4px_rgba(0,0,0,0.3)] flex items-center justify-center font-black text-xs transform rotate-3 select-none ${isCardIndicatorBlack ? 'bg-black text-white' : 'bg-white text-[#0f172a]'}`}>
+                {cardCount}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
       </div>
     </motion.div>
@@ -595,7 +837,7 @@ interface OpponentCardFanProps {
   cardCount: number;
   direction: 'left' | 'right' | 'down';
   side: 'light' | 'dark';
-  gameMode: 'classic' | 'flip';
+  gameMode: 'classic' | 'flip' | 'mercy';
   isShort?: boolean;
   isVeryShort?: boolean;
   hand?: string[];
@@ -617,7 +859,7 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
   const middle = (visibleCards - 1) / 2;
 
   const isDarkSide = gameMode === 'flip' && side === 'dark';
-  const cardBackSrc = gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png';
+  const cardBackSrc = gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/Deck.png';
   // Apply a subtle dark overlay filter for the dark side to visually distinguish it
   const cardBackFilter = isDarkSide ? 'brightness(0.85)' : 'none';
 
@@ -638,9 +880,12 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
     bottomOffset = isMobile ? 10 : 16;
   }
 
-  // For flip cards, correct width to match image's true cropped AR (FLIP_AR)
+  // Sizing corrections for Flip and No Mercy modes based on exact asset aspect ratios
   if (gameMode === 'flip') {
     cardW = Math.round(cardH * FLIP_AR);
+  } else if (gameMode === 'mercy') {
+    const MERCY_AR = 355 / 502;
+    cardW = Math.round(cardH * MERCY_AR);
   }
 
   const defaultSpacing = isVeryShort ? (isMobile ? 8 : 12) : (isShort ? (isMobile ? 10 : 16) : (isMobile ? 14 : 22));
@@ -695,16 +940,16 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
         return (
           <div key={idx} style={outerStyle} className="relative flex-shrink-0">
             <div
-              className={`w-full h-full relative rounded-[6px] overflow-hidden transition-all duration-300 ${gameMode === 'flip' ? 'shadow-[0_4px_12px_-1px_rgba(0,0,0,0.6),0_1px_4px_rgba(0,0,0,0.35)]' : 'shadow-[1px_2px_4px_rgba(0,0,0,0.18)]'}`}
+              className={`w-full h-full relative rounded-[6px] overflow-hidden transition-all duration-300 ${(gameMode === 'mercy' || (gameMode === 'flip' && side === 'dark')) ? 'shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_4px_12px_-1px_rgba(0,0,0,0.5),0_1px_4px_rgba(0,0,0,0.3)]' : 'shadow-[1px_2px_4px_rgba(0,0,0,0.18)]'}`}
               style={{
-                backgroundColor: '#ffffff', // Always white background so card rounded corner blend is clean
+                backgroundColor: (gameMode === 'mercy' || (gameMode === 'flip' && side === 'dark')) ? '#000000' : '#ffffff', // Black for black side so black borders blend cleanly
                 WebkitBoxReflect: 'below 1px linear-gradient(transparent 75%, rgba(255, 255, 255, 0.12))',
               }}
             >
               <img
                 src={assetUrl}
                 alt={cardId || 'Card Back'}
-                className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full pointer-events-none select-none object-contain'}
+                className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : gameMode === 'mercy' ? 'w-full h-full object-cover pointer-events-none select-none block' : 'w-full h-full pointer-events-none select-none object-contain block'}
                 style={gameMode === 'flip' ? FLIP_CROP_STYLE : {}}
               />
             </div>
@@ -741,7 +986,7 @@ interface ParsedCard {
 const parseCardForSorting = (
   cardId: string,
   side: 'light' | 'dark',
-  gameMode: 'classic' | 'flip'
+  gameMode: 'classic' | 'flip' | 'mercy'
 ): ParsedCard => {
   const face = getActiveCardFaceFrontend(cardId, side, gameMode);
   const parts = face.split('_');
@@ -824,16 +1069,31 @@ interface DiscardHistoryCard {
 interface DiscardPileProps {
   room: any;
   side: 'light' | 'dark';
-  gameMode: 'classic' | 'flip';
+  gameMode: 'classic' | 'flip' | 'mercy';
   lastPlayedCardKey: string | null;
   onResetPlayedKey: () => void;
+  pendingWildCard: { cardId: string; key: string } | null;
+  setPendingWildCard: (val: { cardId: string; key: string } | null) => void;
+  socket: any;
+  setLastPlayedCardKey: (key: string | null) => void;
 }
 
-function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey }: DiscardPileProps) {
+function DiscardPile({
+  room,
+  side,
+  gameMode,
+  lastPlayedCardKey,
+  onResetPlayedKey,
+  pendingWildCard,
+  setPendingWildCard,
+  socket,
+  setLastPlayedCardKey
+}: DiscardPileProps) {
   const [discardHistory, setDiscardHistory] = useState<DiscardHistoryCard[]>([]);
   const lastTopRef = useRef<string | null>(null);
   const lastSizeRef = useRef<number>(0);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [hoveredColor, setHoveredColor] = useState<string | null>(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 640);
@@ -934,15 +1194,46 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
     lastSizeRef.current = currentSize;
   }, [room?.discardPileTop, room?.discardPileSize, lastPlayedCardKey]);
 
+  const isDarkSide = gameMode === 'flip' && side === 'dark';
+  const colors = isDarkSide
+    ? [
+      { name: 'PINK', hex: '#ec4899', glow: '#ec4899', hoverGlow: '0 0 24px 8px #ec4899' },
+      { name: 'TEAL', hex: '#14b8a6', glow: '#14b8a6', hoverGlow: '0 0 24px 8px #14b8a6' },
+      { name: 'ORANGE', hex: '#f97316', glow: '#f97316', hoverGlow: '0 0 24px 8px #f97316' },
+      { name: 'PURPLE', hex: '#8b5cf6', glow: '#8b5cf6', hoverGlow: '0 0 24px 8px #8b5cf6' }
+    ]
+    : gameMode === 'mercy'
+      ? [
+        { name: 'RED', hex: '#d71809', glow: '#ff3b30', hoverGlow: '0 0 24px 8px #ff3b30' },
+        { name: 'BLUE', hex: '#21558c', glow: '#3b82f6', hoverGlow: '0 0 24px 8px #3b82f6' },
+        { name: 'GREEN', hex: '#215513', glow: '#22c55e', hoverGlow: '0 0 24px 8px #22c55e' },
+        { name: 'YELLOW', hex: '#e3ae15', glow: '#ffd43f', hoverGlow: '0 0 24px 8px #ffd43f' }
+      ]
+      : [
+        { name: 'RED', hex: '#cc3333', glow: '#ff4d4d', hoverGlow: '0 0 24px 8px #ff4d4d' },
+        { name: 'BLUE', hex: '#0956bf', glow: '#3b82f6', hoverGlow: '0 0 24px 8px #3b82f6' },
+        { name: 'GREEN', hex: '#379711', glow: '#22c55e', hoverGlow: '0 0 24px 8px #22c55e' },
+        { name: 'YELLOW', hex: '#ecd407', glow: '#ffd43f', hoverGlow: '0 0 24px 8px #ffd43f' }
+      ];
+
   const targetH = isMobile ? 130 : 220;
-  const targetW = gameMode === 'flip' ? Math.round(targetH * FLIP_AR) : Math.round(targetH * 0.69);
+  const MERCY_AR = 355 / 502;
+  const targetW = gameMode === 'flip'
+    ? Math.round(targetH * FLIP_AR)
+    : gameMode === 'mercy'
+      ? Math.round(targetH * MERCY_AR)
+      : Math.round(targetH * 0.69);
 
   return (
     <div
       id="discard-pile-drop-zone"
       className="relative flex items-center justify-center transition-all duration-150 ease-out"
       style={{
-        width: gameMode === 'flip' ? (isMobile ? '81px' : '137px') : (isMobile ? '90px' : '152px'),
+        width: gameMode === 'flip'
+          ? (isMobile ? '81px' : '137px')
+          : gameMode === 'mercy'
+            ? (isMobile ? '92px' : '156px')
+            : (isMobile ? '90px' : '152px'),
         height: isMobile ? '130px' : '220px',
       }}
     >
@@ -953,14 +1244,14 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
             ? '0 14px 28px rgba(0,0,0,0.32), 0 5px 10px rgba(0,0,0,0.22)'
             : '0 4px 8px rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.12)';
 
-          if (gameMode === 'flip') {
+          if (gameMode === 'mercy' || (gameMode === 'flip' && side === 'dark')) {
             shadowStyle = isTop
-              ? '0 20px 40px -4px rgba(0,0,0,0.55), 0 8px 16px rgba(0,0,0,0.35)'
-              : '0 6px 16px -2px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.2)';
+              ? '0 0 0 1.5px rgba(255,255,255,0.25), 0 20px 40px -4px rgba(0,0,0,0.6), 0 8px 16px rgba(0,0,0,0.4)'
+              : '0 0 0 1px rgba(255,255,255,0.15), 0 6px 16px -2px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.25)';
           }
 
           const assetUrl = card.cardId === 'DECK_BACK'
-            ? (gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png')
+            ? (gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/Deck.png')
             : getCardAssetUrl(card.cardId, side, gameMode);
 
           return (
@@ -975,7 +1266,7 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
                 transformOrigin: 'center center',
                 zIndex: i,
                 boxShadow: shadowStyle,
-                backgroundColor: '#ffffff', // Always white so cropped card corner blend is clean
+                backgroundColor: (gameMode === 'mercy' || (gameMode === 'flip' && side === 'dark')) ? '#000000' : '#ffffff', // Black for black side so black borders blend cleanly
                 borderRadius: isMobile ? '7px' : '12px',
                 overflow: 'hidden',
                 backfaceVisibility: 'hidden',
@@ -999,12 +1290,218 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
               <img
                 src={assetUrl}
                 alt={card.cardId}
-                className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full object-contain pointer-events-none select-none'}
+                className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : gameMode === 'mercy' ? 'w-full h-full object-cover pointer-events-none select-none block' : 'w-full h-full object-contain pointer-events-none select-none block'}
                 style={gameMode === 'flip' ? FLIP_CROP_STYLE : {}}
               />
             </motion.div>
           );
         })}
+
+        {/* Wild Card preview and Color Wheel overlay when player is picking color */}
+        {pendingWildCard && (
+          <>
+            {/* Click-outside backdrop to cancel */}
+            <div
+              className="fixed inset-0 z-[80] bg-black/30 cursor-pointer pointer-events-auto"
+              onClick={() => {
+                if (setPendingWildCard) setPendingWildCard(null);
+              }}
+            />
+
+            {/* Preview played Wild card on discard pile */}
+            <motion.div
+              style={{
+                position: 'absolute',
+                width: `${targetW}px`,
+                height: `${targetH}px`,
+                left: `calc(50% - ${targetW / 2}px)`,
+                top: `calc(50% - ${targetH / 2}px)`,
+                transformOrigin: 'center center',
+                zIndex: 90,
+                boxShadow: (gameMode === 'mercy' || (gameMode === 'flip' && side === 'dark'))
+                  ? '0 0 0 1.5px rgba(255,255,255,0.25), 0 20px 40px -4px rgba(0,0,0,0.6)'
+                  : '0 14px 28px rgba(0,0,0,0.32), 0 5px 10px rgba(0,0,0,0.22)',
+                backgroundColor: (gameMode === 'mercy' || (gameMode === 'flip' && side === 'dark')) ? '#000000' : '#ffffff',
+                borderRadius: isMobile ? '7px' : '12px',
+                overflow: 'hidden',
+                pointerEvents: 'none',
+              }}
+              initial={{ scale: 1.25, y: 150, rotate: 0, opacity: 0 }}
+              animate={{ scale: 1.0, y: 0, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+            >
+              <img
+                src={getCardAssetUrl(pendingWildCard.cardId, side, gameMode)}
+                alt="Wild card preview"
+                className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : gameMode === 'mercy' ? 'w-full h-full object-cover pointer-events-none select-none block' : 'w-full h-full object-contain pointer-events-none select-none block'}
+                style={{
+                  ...(gameMode === 'flip' ? FLIP_CROP_STYLE : {}),
+                  filter: 'blur(3.5px)',
+                }}
+              />
+            </motion.div>
+
+            {/* Glowing 2x2 Jelly Color Picker overlay */}
+            <div
+              className="absolute z-[100] flex items-center justify-center pointer-events-auto animate-fade-in"
+              style={{
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: `${targetW * 0.72}px`,
+                height: `${targetW * 0.72}px`,
+                filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.5))',
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0, rotate: -15, opacity: 0 }}
+                animate={{ scale: 1.1, rotate: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                className="w-full h-full grid grid-cols-2 gap-2 sm:gap-2.5 p-1 sm:p-1.5"
+              >
+                {/* 1. Top-Left (RED / PINK) */}
+                <motion.button
+                  animate={
+                    hoveredColor === null
+                      ? { scale: 1, x: 0, y: 0, opacity: 1 }
+                      : hoveredColor === colors[0].name
+                        ? { scale: 1.28, x: isMobile ? -4 : -6, y: isMobile ? -4 : -6, opacity: 1 }
+                        : { scale: 0.88, x: 0, y: 0, opacity: 1 }
+                  }
+                  transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+                  whileTap={{ scale: 0.92 }}
+                  onMouseEnter={() => setHoveredColor(colors[0].name)}
+                  onMouseLeave={() => setHoveredColor(null)}
+                  onClick={() => {
+                    const cardId = pendingWildCard.cardId;
+                    const key = pendingWildCard.key;
+                    if (setLastPlayedCardKey) setLastPlayedCardKey(key);
+                    socket.emit('play_card', { roomId: room.roomId, cardId, chosenColor: colors[0].name });
+                    if (setPendingWildCard) setPendingWildCard(null);
+                  }}
+                  style={{
+                    backgroundColor: colors[0].hex,
+                    boxShadow: hoveredColor === colors[0].name
+                      ? `0 0 0 ${isMobile ? 2.5 : 3.5}px ${colors[0].hex}, 0 ${isMobile ? 5 : 8}px ${isMobile ? 10 : 16}px rgba(0,0,0,0.45), inset 0 2.5px 5px rgba(255,255,255,0.45)`
+                      : `0 ${isMobile ? 5 : 8}px ${isMobile ? 10 : 16}px rgba(0,0,0,0.45), inset 0 2.5px 5px rgba(255,255,255,0.45)`,
+                    zIndex: hoveredColor === colors[0].name ? 10 : 1,
+                    borderRadius: '22.5%',
+                    border: isMobile ? '2.5px solid #ffffff' : '3.5px solid #ffffff',
+                  }}
+                  className="relative w-full h-full cursor-pointer overflow-hidden"
+                  type="button"
+                >
+                  <div className="absolute top-[5%] left-[6%] right-[6%] h-[35%] rounded-t-[10px] sm:rounded-t-[14px] rounded-b-[4px] sm:rounded-b-[6px] bg-white/25 pointer-events-none" />
+                </motion.button>
+
+                {/* 2. Top-Right (BLUE / TEAL) */}
+                <motion.button
+                  animate={
+                    hoveredColor === null
+                      ? { scale: 1, x: 0, y: 0, opacity: 1 }
+                      : hoveredColor === colors[1].name
+                        ? { scale: 1.28, x: isMobile ? 4 : 6, y: isMobile ? -4 : -6, opacity: 1 }
+                        : { scale: 0.88, x: 0, y: 0, opacity: 1 }
+                  }
+                  transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+                  whileTap={{ scale: 0.92 }}
+                  onMouseEnter={() => setHoveredColor(colors[1].name)}
+                  onMouseLeave={() => setHoveredColor(null)}
+                  onClick={() => {
+                    const cardId = pendingWildCard.cardId;
+                    const key = pendingWildCard.key;
+                    if (setLastPlayedCardKey) setLastPlayedCardKey(key);
+                    socket.emit('play_card', { roomId: room.roomId, cardId, chosenColor: colors[1].name });
+                    if (setPendingWildCard) setPendingWildCard(null);
+                  }}
+                  style={{
+                    backgroundColor: colors[1].hex,
+                    boxShadow: hoveredColor === colors[1].name
+                      ? `0 0 0 ${isMobile ? 2.5 : 3.5}px ${colors[1].hex}, 0 ${isMobile ? 5 : 8}px ${isMobile ? 10 : 16}px rgba(0,0,0,0.45), inset 0 2.5px 5px rgba(255,255,255,0.45)`
+                      : `0 ${isMobile ? 5 : 8}px ${isMobile ? 10 : 16}px rgba(0,0,0,0.45), inset 0 2.5px 5px rgba(255,255,255,0.45)`,
+                    zIndex: hoveredColor === colors[1].name ? 10 : 1,
+                    borderRadius: '22.5%',
+                    border: isMobile ? '2.5px solid #ffffff' : '3.5px solid #ffffff',
+                  }}
+                  className="relative w-full h-full cursor-pointer overflow-hidden"
+                  type="button"
+                >
+                  <div className="absolute top-[5%] left-[6%] right-[6%] h-[35%] rounded-t-[10px] sm:rounded-t-[14px] rounded-b-[4px] sm:rounded-b-[6px] bg-white/25 pointer-events-none" />
+                </motion.button>
+
+                {/* 3. Bottom-Left (GREEN / ORANGE) */}
+                <motion.button
+                  animate={
+                    hoveredColor === null
+                      ? { scale: 1, x: 0, y: 0, opacity: 1 }
+                      : hoveredColor === colors[2].name
+                        ? { scale: 1.28, x: isMobile ? -4 : -6, y: isMobile ? 4 : 6, opacity: 1 }
+                        : { scale: 0.88, x: 0, y: 0, opacity: 1 }
+                  }
+                  transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+                  whileTap={{ scale: 0.92 }}
+                  onMouseEnter={() => setHoveredColor(colors[2].name)}
+                  onMouseLeave={() => setHoveredColor(null)}
+                  onClick={() => {
+                    const cardId = pendingWildCard.cardId;
+                    const key = pendingWildCard.key;
+                    if (setLastPlayedCardKey) setLastPlayedCardKey(key);
+                    socket.emit('play_card', { roomId: room.roomId, cardId, chosenColor: colors[2].name });
+                    if (setPendingWildCard) setPendingWildCard(null);
+                  }}
+                  style={{
+                    backgroundColor: colors[2].hex,
+                    boxShadow: hoveredColor === colors[2].name
+                      ? `0 0 0 ${isMobile ? 2.5 : 3.5}px ${colors[2].hex}, 0 ${isMobile ? 5 : 8}px ${isMobile ? 10 : 16}px rgba(0,0,0,0.45), inset 0 2.5px 5px rgba(255,255,255,0.45)`
+                      : `0 ${isMobile ? 5 : 8}px ${isMobile ? 10 : 16}px rgba(0,0,0,0.45), inset 0 2.5px 5px rgba(255,255,255,0.45)`,
+                    zIndex: hoveredColor === colors[2].name ? 10 : 1,
+                    borderRadius: '22.5%',
+                    border: isMobile ? '2.5px solid #ffffff' : '3.5px solid #ffffff',
+                  }}
+                  className="relative w-full h-full cursor-pointer overflow-hidden"
+                  type="button"
+                >
+                  <div className="absolute top-[5%] left-[6%] right-[6%] h-[35%] rounded-t-[10px] sm:rounded-t-[14px] rounded-b-[4px] sm:rounded-b-[6px] bg-white/25 pointer-events-none" />
+                </motion.button>
+
+                {/* 4. Bottom-Right (YELLOW / PURPLE) */}
+                <motion.button
+                  animate={
+                    hoveredColor === null
+                      ? { scale: 1, x: 0, y: 0, opacity: 1 }
+                      : hoveredColor === colors[3].name
+                        ? { scale: 1.28, x: isMobile ? 4 : 6, y: isMobile ? 4 : 6, opacity: 1 }
+                        : { scale: 0.88, x: 0, y: 0, opacity: 1 }
+                  }
+                  transition={{ type: 'spring', stiffness: 280, damping: 22 }}
+                  whileTap={{ scale: 0.92 }}
+                  onMouseEnter={() => setHoveredColor(colors[3].name)}
+                  onMouseLeave={() => setHoveredColor(null)}
+                  onClick={() => {
+                    const cardId = pendingWildCard.cardId;
+                    const key = pendingWildCard.key;
+                    if (setLastPlayedCardKey) setLastPlayedCardKey(key);
+                    socket.emit('play_card', { roomId: room.roomId, cardId, chosenColor: colors[3].name });
+                    if (setPendingWildCard) setPendingWildCard(null);
+                  }}
+                  style={{
+                    backgroundColor: colors[3].hex,
+                    boxShadow: hoveredColor === colors[3].name
+                      ? `0 0 0 ${isMobile ? 2.5 : 3.5}px ${colors[3].hex}, 0 ${isMobile ? 5 : 8}px ${isMobile ? 10 : 16}px rgba(0,0,0,0.45), inset 0 2.5px 5px rgba(255,255,255,0.45)`
+                      : `0 ${isMobile ? 5 : 8}px ${isMobile ? 10 : 16}px rgba(0,0,0,0.45), inset 0 2.5px 5px rgba(255,255,255,0.45)`,
+                    zIndex: hoveredColor === colors[3].name ? 10 : 1,
+                    borderRadius: '22.5%',
+                    border: isMobile ? '2.5px solid #ffffff' : '3.5px solid #ffffff',
+                  }}
+                  className="relative w-full h-full cursor-pointer overflow-hidden"
+                  type="button"
+                >
+                  <div className="absolute top-[5%] left-[6%] right-[6%] h-[35%] rounded-t-[10px] sm:rounded-t-[14px] rounded-b-[4px] sm:rounded-b-[6px] bg-white/25 pointer-events-none" />
+                </motion.button>
+              </motion.div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1013,7 +1510,7 @@ function DiscardPile({ room, side, gameMode, lastPlayedCardKey, onResetPlayedKey
 interface HandCanvasProps {
   hand: string[];
   side: 'light' | 'dark';
-  gameMode: 'classic' | 'flip';
+  gameMode: 'classic' | 'flip' | 'mercy';
   roomId: string;
   socket: any;
   onCardPlay?: (key: string) => void;
@@ -1089,6 +1586,11 @@ function HandCanvas({
       return false;
     }
 
+    if ((room.eliminatedPlayers || []).includes(myPlayerId)) {
+      console.log('[validatePlayableClient] Rejecting because local player is eliminated');
+      return false;
+    }
+
     // Must be my turn
     const activePlayer = room.players[room.currentTurn];
     if (!activePlayer) {
@@ -1122,7 +1624,7 @@ function HandCanvas({
     const topFace = getActiveCardFaceFrontend(topCardId, room.side, room.gameMode);
     console.log('[validatePlayableClient] resolved face:', face, 'resolved topFace:', topFace);
 
-    const isPlayable = validatePlayableClientLogic(face, topFace, room.currentColor);
+    const isPlayable = validatePlayableClientLogic(face, topFace, room.currentColor, room.gameMode === 'mercy' ? room.drawStack : null);
     console.log('[validatePlayableClient] Result of validatePlayableClientLogic:', isPlayable);
     return isPlayable;
   };
@@ -1134,7 +1636,7 @@ function HandCanvas({
 
   const playCard = (cardId: string, _index: number, instanceId: string) => {
     const face = getActiveCardFaceFrontend(cardId, side, gameMode);
-    if (face === 'WILD' || face === 'WILD_DRAW_FOUR' || face === 'WILD_DRAW_TWO' || face === 'WILD_DRAW_COLOR') {
+    if (face === 'WILD' || face.startsWith('WILD_')) {
       if (onPlayWild) {
         onPlayWild(cardId, instanceId);
       }
@@ -1148,6 +1650,7 @@ function HandCanvas({
 
   const handleCardTap = (cardId: string, index: number, instanceId: string) => {
     if (!validatePlayableClient(cardId)) {
+      playSoundEffect('invalid', soundEnabled);
       triggerShake(index);
       return;
     }
@@ -1194,6 +1697,7 @@ function HandCanvas({
 
     if (!validatePlayableClient(cardId)) {
       // Card can't be played — shake it
+      playSoundEffect('invalid', soundEnabled);
       triggerShake(index);
       return;
     }
@@ -1241,8 +1745,18 @@ function HandCanvas({
   } else if (isShort) {
     targetH = isMobile ? 110 : 160;
   }
-  // Cropped aspect ratio is FLIP_AR.
-  const targetW = gameMode === 'flip' ? Math.round(targetH * FLIP_AR) : Math.round(targetH * 0.69);
+  // Sizing corrections for Flip and No Mercy modes based on exact asset aspect ratios
+  const MERCY_AR = 355 / 502;
+  const targetW = gameMode === 'flip'
+    ? Math.round(targetH * FLIP_AR)
+    : gameMode === 'mercy'
+      ? Math.round(targetH * MERCY_AR)
+      : Math.round(targetH * 0.69);
+
+  // Dynamic scale factor for hand sizes > 10 cards (caps at 72% scale)
+  const sizeScale = count > 10 ? Math.max(0.72, 1.0 - (count - 10) * 0.018) : 1.0;
+  const scaledH = targetH * sizeScale;
+  const scaledW = targetW * sizeScale;
 
   let spacing = isMobile
     ? Math.max(25, 45 - count)
@@ -1251,9 +1765,9 @@ function HandCanvas({
   const avatarSpace = isVeryShort ? (isMobile ? 60 : 100) : (isShort ? (isMobile ? 80 : 120) : (isMobile ? 100 : 140));
   const maxHandWidth = dimensions.width - avatarSpace;
 
-  const totalHandWidth = (count - 1) * spacing + targetW;
+  const totalHandWidth = (count - 1) * spacing + scaledW;
   if (totalHandWidth > maxHandWidth && count > 1) {
-    spacing = (maxHandWidth - targetW) / (count - 1);
+    spacing = (maxHandWidth - scaledW) / (count - 1);
     spacing = Math.max(isMobile ? 12 : 20, spacing);
   }
 
@@ -1264,8 +1778,8 @@ function HandCanvas({
   }
 
   const baseY = isMobile
-    ? dimensions.height - 5 - targetH / 2
-    : dimensions.height - 10 - targetH / 2;
+    ? dimensions.height - 5 - scaledH / 2
+    : dimensions.height - 10 - scaledH / 2;
   const middle = (count - 1) / 2;
 
   // Stable key reconciliation for duplicate cardIds
@@ -1311,26 +1825,34 @@ function HandCanvas({
         const cardId = inst.cardId;
         const offset = i - middle;
         const tX = startX + i * spacing;
-        const tYBase = baseY + Math.abs(offset) * 4;
 
         const isSelected = i === selectedCardIndex;
         const isHovered = i === hoveredIndex;
         const isDragging = i === draggingIndex;
         const isShaking = i === shakingIndex;
 
-        let targetScale = 1.0;
-        let zIndex = isSelected ? 200 + i : i;
+        // Dynamic rotation step: flattens the fan rotation as the hand size grows
+        const rotStep = count > 10 ? Math.max(0.4, 2.0 * (10 / count)) : 2.0;
+        const targetRot = isDragging ? 0 : offset * rotStep;
 
-        let shadowStyle = 'drop-shadow(3.54px 3.54px 4px rgba(0,0,0,0.2))';
-        if (gameMode === 'flip') {
-          if (isDragging) shadowStyle = 'drop-shadow(0px 18px 22px rgba(0,0,0,0.45)) drop-shadow(0px 8px 8px rgba(0,0,0,0.3))';
-          else if (isSelected) shadowStyle = 'drop-shadow(0px 10px 16px rgba(0,0,0,0.38)) drop-shadow(0px 4px 6px rgba(0,0,0,0.22))';
-          else if (isHovered) shadowStyle = 'drop-shadow(0px 6px 12px rgba(0,0,0,0.35)) drop-shadow(0px 2px 4px rgba(0,0,0,0.2))';
-          else shadowStyle = 'drop-shadow(0px 3px 8px rgba(0,0,0,0.3)) drop-shadow(0px 1px 3px rgba(0,0,0,0.18))';
+        // Dynamic arch depth step: flattens the fan arc vertically as hand size grows
+        const archStep = count > 10 ? Math.max(1.0, 4.0 * (10 / count)) : 4.0;
+        const tYBase = baseY + Math.abs(offset) * archStep;
+
+        // Selected card goes highest, else default stack order
+        let zIndex = isSelected ? 2000 : i;
+        let targetScale = 1.0;
+
+        let shadowStyle = '0px 3.54px 4px rgba(0,0,0,0.2)';
+        if (gameMode === 'mercy' || (gameMode === 'flip' && side === 'dark')) {
+          if (isDragging) shadowStyle = '0 0 0 2px rgba(255,255,255,0.35), 0 20px 40px rgba(0,0,0,0.5)';
+          else if (isSelected) shadowStyle = '0 0 0 1.5px rgba(255,255,255,0.3), 0 14px 28px rgba(0,0,0,0.42)';
+          else if (isHovered) shadowStyle = '0 0 0 1px rgba(255,255,255,0.22), 0 8px 16px rgba(0,0,0,0.35)';
+          else shadowStyle = '0 0 0 1px rgba(255,255,255,0.15), 0 3px 8px rgba(0,0,0,0.3)';
         } else {
-          if (isDragging) shadowStyle = 'drop-shadow(12px 18px 10px rgba(0,0,0,0.3))';
-          else if (isSelected) shadowStyle = 'drop-shadow(5px 8px 6px rgba(0,0,0,0.25))';
-          else if (isHovered) shadowStyle = 'drop-shadow(2.5px 2.5px 2px rgba(0,0,0,0.2))';
+          if (isDragging) shadowStyle = '12px 18px 10px rgba(0,0,0,0.3)';
+          else if (isSelected) shadowStyle = '5px 8px 6px rgba(0,0,0,0.25)';
+          else if (isHovered) shadowStyle = '2.5px 2.5px 2px rgba(0,0,0,0.2)';
         }
 
         const isPlayable = validatePlayableClient(cardId);
@@ -1338,9 +1860,9 @@ function HandCanvas({
         if (isDragging) {
           targetScale = 1.12;
           zIndex = 1000;
+        } else if (isHovered) {
+          targetScale = 1.08;
         }
-
-        const targetRot = isDragging ? 0 : offset * 2.0;
 
         const assetUrl = getCardAssetUrl(cardId, side, gameMode);
 
@@ -1349,18 +1871,18 @@ function HandCanvas({
             key={key}
             style={{
               position: 'absolute',
-              left: `${tX - targetW / 2}px`,
-              top: `${tYBase - targetH / 2}px`,
-              width: `${targetW}px`,
-              height: `${targetH}px`,
+              left: `${tX - scaledW / 2}px`,
+              top: `${tYBase - scaledH / 2}px`,
+              width: `${scaledW}px`,
+              height: `${scaledH}px`,
               transformOrigin: 'center center',
               zIndex,
               cursor: isDragging ? 'grabbing' : 'pointer',
               touchAction: 'none',
-              filter: shadowStyle,
+              boxShadow: shadowStyle,
               borderRadius: isMobile ? '7px' : '12px',
               overflow: 'hidden',
-              backgroundColor: '#ffffff', // Always white so cropped card corner blend is clean
+              backgroundColor: (gameMode === 'mercy' || (gameMode === 'flip' && side === 'dark')) ? '#000000' : '#ffffff', // Black for black side so black borders blend cleanly
             }}
             animate={{
               x: isShaking ? [-8, 8, -6, 6, 0] : 0,
@@ -1370,8 +1892,9 @@ function HandCanvas({
             }}
             transition={{
               type: 'spring',
-              stiffness: 400,
-              damping: 30,
+              stiffness: 260,
+              damping: 24,
+              mass: 0.8,
               // For shake: run the x keyframes fast
               ...(isShaking ? { duration: 0.4 } : {})
             }}
@@ -1392,9 +1915,9 @@ function HandCanvas({
             <motion.img
               src={assetUrl}
               alt={cardId}
-              className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : 'w-full h-full pointer-events-none select-none object-contain'}
+              className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : gameMode === 'mercy' ? 'w-full h-full object-cover pointer-events-none select-none block' : 'w-full h-full pointer-events-none select-none object-contain block'}
               style={{
-                imageRendering: gameMode === 'flip' ? 'auto' : 'pixelated',
+                imageRendering: (gameMode === 'flip' || gameMode === 'mercy') ? 'auto' : 'pixelated',
                 ...(gameMode === 'flip' ? FLIP_CROP_STYLE : {}),
               }}
               animate={{
@@ -1449,7 +1972,7 @@ function BetaPill() {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
-        Beta 1.2
+        Beta 1.3
       </div>
 
       <AnimatePresence>
@@ -1478,7 +2001,7 @@ interface CpuLobbyViewProps {
   allBotNames: string[];
   botBgColors: string[];
   onBack: () => void;
-  onStart: (playerName: string, gameMode: 'classic' | 'flip', bots: CpuBot[], avatarSeed: string) => void;
+  onStart: (playerName: string, gameMode: 'classic' | 'flip' | 'mercy', bots: CpuBot[], avatarSeed: string) => void;
 }
 
 function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botBgColors, onBack, onStart }: CpuLobbyViewProps) {
@@ -1489,7 +2012,7 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
       return '';
     }
   });
-  const [cpuGameMode, setCpuGameMode] = useState<'classic' | 'flip'>('classic');
+  const [cpuGameMode, setCpuGameMode] = useState<'classic' | 'flip' | 'mercy'>('classic');
   const [bots, setBots] = useState<CpuBot[]>([]);
   const [nameError, setNameError] = useState(false);
   const [botError, setBotError] = useState(false);
@@ -1573,10 +2096,10 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
         <div className="relative bg-neutral-card border-3 border-[#0f172a] rounded-[20px] pt-10 pb-6 px-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center w-full">
 
           {/* Pill Header sitting on the top border, changes color on hover */}
-          <div className={`absolute left-6 -top-5.5 ${cpuGameMode === 'flip' ? 'bg-brand-flip' : 'bg-brand-blue hover:bg-brand-red'} border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a] transition-all duration-180 ease-out cursor-pointer`}>
+          <div className={`absolute left-6 -top-5.5 ${cpuGameMode === 'flip' ? 'bg-brand-flip' : cpuGameMode === 'mercy' ? 'bg-[#e67e22]' : 'bg-brand-blue hover:bg-brand-red'} border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a] transition-all duration-180 ease-out cursor-pointer`}>
             <h2 className="text-white font-black text-xs tracking-wider uppercase select-none flex items-center gap-1.5">
               <Cpu className="w-3.5 h-3.5" />
-              Play vs Computer
+              {cpuGameMode === 'mercy' ? 'No Mercy Mode' : 'Play vs Computer'}
             </h2>
           </div>
 
@@ -1640,15 +2163,15 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
             </label>
           </div>
 
-          {/* Game Mode Switcher with Sliding animated background highlight */}
-          <div className="flex flex-col items-center w-full max-w-[256px] mt-2 mb-4">
+          {/* Game Mode Switcher — 3-way: Classic / Flip / No Mercy */}
+          <div className="flex flex-col items-center w-full max-w-[320px] mt-2 mb-4">
             <div className="flex w-full bg-neutral-card border-2 border-[#0f172a] rounded-[14px] p-0.5 shadow-[2px_2px_0_#0f172a] overflow-hidden relative">
               <motion.div
                 className="absolute top-0.5 bottom-0.5 rounded-[10px] border-2 border-[#0f172a] shadow-[1px_1px_0_#0f172a] z-0"
-                style={{ width: 'calc(50% - 3px)' }}
+                style={{ width: 'calc(33.33% - 3px)' }}
                 animate={{
-                  x: cpuGameMode === 'classic' ? 0 : '100%',
-                  backgroundColor: cpuGameMode === 'classic' ? '#cc3333' : '#4c1d95'
+                  x: cpuGameMode === 'classic' ? 0 : cpuGameMode === 'flip' ? '100%' : '200%',
+                  backgroundColor: cpuGameMode === 'classic' ? '#cc3333' : cpuGameMode === 'flip' ? '#4c1d95' : '#e67e22'
                 }}
                 transition={{ type: 'spring', stiffness: 350, damping: 25 }}
               />
@@ -1667,6 +2190,13 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
               >
                 Flip
               </button>
+              <button
+                onClick={() => setCpuGameMode('mercy')}
+                className={`flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-[10px] cursor-pointer relative z-10 transition-colors duration-200 ${cpuGameMode === 'mercy' ? 'text-white' : 'text-[#0f172a] hover:bg-neutral-bg/30'
+                  }`}
+              >
+                No Mercy
+              </button>
             </div>
           </div>
 
@@ -1680,8 +2210,8 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
                 onClick={addBot}
                 disabled={bots.length >= 3}
                 className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border-2 border-[#0f172a] shadow-[1px_1px_0_#0f172a] transition-all cursor-pointer ${bots.length >= 3
-                    ? 'opacity-40 cursor-not-allowed bg-neutral-bg text-[#0f172a]'
-                    : 'bg-brand-green text-white hover:bg-green-600 active:scale-95'
+                  ? 'opacity-40 cursor-not-allowed bg-neutral-bg text-[#0f172a]'
+                  : 'bg-brand-green text-white hover:bg-green-600 active:scale-95'
                   }`}
               >
                 + Add Bot
@@ -1740,8 +2270,8 @@ function CpuLobbyView({ avatarOffset, onNextAvatar, isLoading, allBotNames, botB
             className={`btn-3d w-[256px] mt-4 ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
           >
             <span className="btn-3d-shadow" />
-            <span className={`btn-3d-edge ${cpuGameMode === 'flip' ? 'btn-3d-edge-purple' : 'btn-3d-edge-green'}`} />
-            <div className={`btn-3d-front ${cpuGameMode === 'flip' ? 'btn-3d-front-purple' : 'btn-3d-front-green'} flex items-center justify-center relative w-full px-12 gap-2 text-xs font-bold uppercase tracking-wider`}>
+            <span className={`btn-3d-edge ${cpuGameMode === 'flip' ? 'btn-3d-edge-purple' : cpuGameMode === 'mercy' ? 'btn-3d-edge-orange' : 'btn-3d-edge-green'}`} />
+            <div className={`btn-3d-front ${cpuGameMode === 'flip' ? 'btn-3d-front-purple' : cpuGameMode === 'mercy' ? 'btn-3d-front-orange' : 'btn-3d-front-green'} flex items-center justify-center relative w-full px-12 gap-2 text-xs font-bold uppercase tracking-wider`}>
               {isLoading ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1818,7 +2348,7 @@ const FAQ_DATA: FaqItem[] = [
   },
   {
     question: "Is there a hand size limit in UNO?",
-    answer: "In standard UNO rules, there is no official hand size limit — players can accumulate as many cards as their bad luck demands! However, in the brutal UNO No Mercy variant (coming soon to this platform), a mercy rule instantly eliminates any player who accumulates 25 or more cards in their hand. This creates intense pressure to find plays quickly and not let draw penalties stack up unchecked."
+    answer: "In standard UNO rules, there is no official hand size limit — players can accumulate as many cards as their bad luck demands! However, in the brutal UNO No Mercy variant (fully playable on this platform), a mercy rule instantly eliminates any player who accumulates 25 or more cards in their hand. This creates intense pressure to find plays quickly and not let draw penalties stack up unchecked."
   }
 ];
 
@@ -2020,10 +2550,10 @@ function App() {
       return 0;
     }
   });
-  const [gameMode, setGameMode] = useState<'classic' | 'flip'>(() => {
+  const [gameMode, setGameMode] = useState<'classic' | 'flip' | 'mercy'>(() => {
     try {
       const val = localStorage.getItem('uno_game_mode');
-      return (val === 'classic' || val === 'flip') ? val : 'classic';
+      return (val === 'classic' || val === 'flip' || val === 'mercy') ? val : 'classic';
     } catch (e) {
       return 'classic';
     }
@@ -2034,6 +2564,23 @@ function App() {
   const updateRoomState = (newRoom: any) => {
     if (newRoom && newRoom.serverTime) {
       serverTimeOffset = newRoom.serverTime - Date.now();
+    }
+    if (newRoom && roomRef.current) {
+      const oldEliminated = roomRef.current.eliminatedPlayers || [];
+      const newEliminated = newRoom.eliminatedPlayers || [];
+      const newlyEliminated = newEliminated.filter((id: string) => !oldEliminated.includes(id));
+      if (newlyEliminated.length > 0) {
+        newlyEliminated.forEach((id: string) => {
+          const player = newRoom.players.find((p: any) => p.id === id);
+          if (player) {
+            pushNotification({
+              message: `${player.name} has been ELIMINATED by the Mercy Rule! (25+ cards) 💀`,
+              type: 'error'
+            });
+            playSoundEffect('knockout', soundEnabledRef.current);
+          }
+        });
+      }
     }
     setRoom(newRoom);
   };
@@ -2047,6 +2594,10 @@ function App() {
       return '';
     }
   });
+  const myPlayerIdRef = useRef(myPlayerId);
+  useEffect(() => {
+    myPlayerIdRef.current = myPlayerId;
+  }, [myPlayerId]);
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isRuleBookOpen, setIsRuleBookOpen] = useState(false);
@@ -2063,17 +2614,28 @@ function App() {
   const [lastPlayedCardKey, setLastPlayedCardKey] = useState<string | null>(null);
   const [pendingWildCard, setPendingWildCard] = useState<{ cardId: string; key: string } | null>(null);
   const lastWinnerRef = useRef<string | null>(null);
-  // Game notification banner state
-  const [gameNotification, setGameNotification] = useState<{ message: string; type: 'info' | 'success' | 'warning' | 'error' } | null>(null);
+  // Stacking notification queue — newest first
+  const [gameNotifications, setGameNotifications] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }[]>([]);
 
-  useEffect(() => {
-    if (gameNotification) {
-      const timer = setTimeout(() => {
-        setGameNotification(null);
-      }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [gameNotification]);
+  const pushNotification = (notif: { message: string; type: 'info' | 'success' | 'warning' | 'error' }) => {
+    const id = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    setGameNotifications(prev => [{ id, ...notif }, ...prev]);
+    setTimeout(() => {
+      setGameNotifications(prev => prev.filter(n => n.id !== id));
+    }, 6000);
+  };
+
+  const [activeChallengeOutcome, setActiveChallengeOutcome] = useState<{
+    challengerId: string;
+    wantsToChallenge: boolean;
+    playedBy: string;
+    targetPlayerId: string;
+    playedPlayerHand: string[];
+    colorBeforePlay: string;
+    guilty?: boolean;
+    accepted?: boolean;
+    cardsDrawn: number;
+  } | null>(null);
   // Tracks whether the current game was started as a CPU game (to skip lobby flash)
   const isCpuGameRef = useRef(false);
 
@@ -2311,7 +2873,7 @@ function App() {
   useEffect(() => {
     try {
       localStorage.setItem('uno_backend_url', BACKEND_URL);
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   useEffect(() => {
@@ -2476,23 +3038,96 @@ function App() {
       if (updatedRoom && updatedRoom.serverTime) {
         serverTimeOffset = updatedRoom.serverTime - Date.now();
       }
-      setRoom((prevRoom: any) => {
-        if (prevRoom && updatedRoom) {
-          const prevDiscardSize = prevRoom.discardPileSize || 0;
-          const nextDiscardSize = updatedRoom.discardPileSize || 0;
-          const prevDeckSize = prevRoom.deckSize || 0;
-          const nextDeckSize = updatedRoom.deckSize || 0;
 
-          if (nextDiscardSize > prevDiscardSize) {
-            playSoundEffect('play', soundEnabledRef.current);
-          } else if (nextDiscardSize < prevDiscardSize && nextDiscardSize > 0) {
-            playSoundEffect('shuffle', soundEnabledRef.current);
-          } else if (nextDeckSize < prevDeckSize && nextDiscardSize === prevDiscardSize) {
-            playSoundEffect('draw', soundEnabledRef.current);
+      const prevRoom = roomRef.current;
+      if (prevRoom && updatedRoom && updatedRoom.gameStarted) {
+        const prevDiscardSize = prevRoom.discardPileSize || 0;
+        const nextDiscardSize = updatedRoom.discardPileSize || 0;
+
+
+
+        let cardWasPlayed = false;
+        if (nextDiscardSize > prevDiscardSize) {
+          cardWasPlayed = true;
+          const cardId = updatedRoom.discardPileTop;
+          playSoundEffect('play', soundEnabledRef.current, cardId, updatedRoom.gameMode, updatedRoom.side, updatedRoom.currentColor, prevRoom.currentColor);
+        } else if (nextDiscardSize < prevDiscardSize && nextDiscardSize > 0) {
+          playSoundEffect('shuffle', soundEnabledRef.current);
+        }
+
+        const prevDeckSize = prevRoom.deckSize || 0;
+        const nextDeckSize = updatedRoom.deckSize || 0;
+
+        // Draw check: detect if any player drew cards (only play sound for penalty or stack draw)
+        if (nextDeckSize < prevDeckSize) {
+          if (prevRoom.gameStarted) {
+            // Find newly eliminated players in this update to skip their draw sounds
+            const prevEliminated = prevRoom.eliminatedPlayers || [];
+            const nextEliminated = updatedRoom.eliminatedPlayers || [];
+            const newlyEliminated = nextEliminated.filter((id: string) => !prevEliminated.includes(id));
+
+            let maxDrawn = 0;
+            if (prevRoom.players && updatedRoom.players) {
+              updatedRoom.players.forEach((nextPlayer: any) => {
+                // Skip playing draw sounds for newly eliminated/knocked-out players
+                if (newlyEliminated.includes(nextPlayer.id)) {
+                  return;
+                }
+
+                const prevPlayer = prevRoom.players.find((p: any) => p.id === nextPlayer.id);
+                if (prevPlayer) {
+                  const prevCount = prevPlayer.handCardCount !== undefined
+                    ? prevPlayer.handCardCount
+                    : (prevPlayer.hand?.length || 0);
+                  const nextCount = nextPlayer.handCardCount !== undefined
+                    ? nextPlayer.handCardCount
+                    : (nextPlayer.hand?.length || 0);
+
+                  if (nextCount > prevCount) {
+                    const diff = nextCount - prevCount;
+                    if (diff > maxDrawn) {
+                      maxDrawn = diff;
+                    }
+                  }
+                }
+              });
+            }
+
+            // If the only players drawing cards in this update were knocked out, do not fall back to deck size difference
+            let knockedOutPlayerDrew = false;
+            if (prevRoom.players && updatedRoom.players) {
+              updatedRoom.players.forEach((nextPlayer: any) => {
+                if (newlyEliminated.includes(nextPlayer.id)) {
+                  const prevPlayer = prevRoom.players.find((p: any) => p.id === nextPlayer.id);
+                  if (prevPlayer) {
+                    const prevCount = prevPlayer.handCardCount !== undefined ? prevPlayer.handCardCount : (prevPlayer.hand?.length || 0);
+                    const nextCount = nextPlayer.handCardCount !== undefined ? nextPlayer.handCardCount : (nextPlayer.hand?.length || 0);
+                    if (nextCount > prevCount) {
+                      knockedOutPlayerDrew = true;
+                    }
+                  }
+                }
+              });
+            }
+
+            const fallbackDrawn = knockedOutPlayerDrew ? 0 : (prevDeckSize - nextDeckSize);
+            const finalDrawnCount = maxDrawn > 0 ? maxDrawn : fallbackDrawn;
+
+            if (finalDrawnCount > 0) {
+              // Play a single draw sound instead of multiple stacked sounds, delaying slightly if a card was played
+              const initialDelay = cardWasPlayed ? 800 : 0;
+              setTimeout(() => {
+                playSoundEffect('draw', soundEnabledRef.current);
+              }, initialDelay);
+            }
           }
         }
-        return updatedRoom;
-      });
+
+
+      }
+
+      updateRoomState(updatedRoom);
+
       if (updatedRoom && updatedRoom.gameStarted) {
         setView('game');
       }
@@ -2509,21 +3144,21 @@ function App() {
       playSoundEffect('uno', soundEnabledRef.current);
       const currentRoom = roomRef.current;
       const callerName = currentRoom?.players.find((p: any) => p.id === data.playerId)?.name || 'Someone';
-      setGameNotification({ message: `${callerName} called UNO! 📣`, type: 'info' });
+      pushNotification({ message: `${callerName} called UNO! 📣`, type: 'info' });
     });
 
     socket.on('uno_caught', (data: any) => {
       console.log('Socket uno_caught received:', data);
-      playSoundEffect('draw', soundEnabledRef.current);
       const currentRoom = roomRef.current;
       const targetName = currentRoom?.players.find((p: any) => p.id === data.caughtPlayerId)?.name || 'Someone';
       const catcherName = currentRoom?.players.find((p: any) => p.id === data.caughtBy)?.name || 'Someone';
-      setGameNotification({ message: `${catcherName} caught ${targetName}! 🫵 ${targetName} draws 2 cards!`, type: 'warning' });
+      pushNotification({ message: `${catcherName} caught ${targetName}! 🫵 ${targetName} draws 2 cards!`, type: 'warning' });
+      playSoundEffect('challenge', soundEnabledRef.current);
     });
 
     socket.on('uno_catch_failed', () => {
       console.log('Socket uno_catch_failed received');
-      setGameNotification({ message: 'Catch failed! Opponent already called UNO or has more/fewer cards.', type: 'error' });
+      pushNotification({ message: 'Catch failed! Opponent already called UNO or has more/fewer cards.', type: 'error' });
     });
 
     socket.on('challenge_resolved', (data: any) => {
@@ -2536,20 +3171,24 @@ function App() {
       const playedByPlayer = currentRoom.players.find((p: any) => p.id === playedById)?.name || 'the opponent';
 
       if (data.guilty) {
-        setGameNotification({
+        pushNotification({
           message: `${challenger} successfully challenged ${playedByPlayer}! ${playedByPlayer} draws ${data.cardsDrawn} cards! 🫵`,
           type: 'success'
         });
       } else if (data.guilty === false) {
-        setGameNotification({
+        pushNotification({
           message: `${challenger} challenged ${playedByPlayer} but failed! ${challenger} draws ${data.cardsDrawn} cards! ❌`,
           type: 'error'
         });
       } else if (data.accepted) {
-        setGameNotification({
+        pushNotification({
           message: `${challenger} accepted the penalty and drew ${data.cardsDrawn} cards. 🤝`,
           type: 'info'
         });
+      }
+
+      if (data.wantsToChallenge) {
+        setActiveChallengeOutcome(data);
       }
     });
 
@@ -2735,20 +3374,19 @@ function App() {
             >
               {/* Modal header/title if any */}
               {activeModal.title && (
-                <div className={`border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a] -mt-10 mb-4 transform -rotate-1 flex items-center gap-2 ${
-                  activeModal.title.toLowerCase().includes('error') || 
-                  activeModal.title.toLowerCase().includes('kick') || 
+                <div className={`border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a] -mt-10 mb-4 transform -rotate-1 flex items-center gap-2 ${activeModal.title.toLowerCase().includes('error') ||
+                  activeModal.title.toLowerCase().includes('kick') ||
                   activeModal.title.toLowerCase().includes('fail')
-                    ? 'bg-brand-red text-white' 
-                    : activeModal.type === 'confirm'
-                      ? 'bg-brand-yellow text-[#0f172a]'
-                      : 'bg-brand-blue text-white'
-                }`}>
-                  {(activeModal.title.toLowerCase().includes('error') || 
-                    activeModal.title.toLowerCase().includes('kick') || 
+                  ? 'bg-brand-red text-white'
+                  : activeModal.type === 'confirm'
+                    ? 'bg-brand-yellow text-[#0f172a]'
+                    : 'bg-brand-blue text-white'
+                  }`}>
+                  {(activeModal.title.toLowerCase().includes('error') ||
+                    activeModal.title.toLowerCase().includes('kick') ||
                     activeModal.title.toLowerCase().includes('fail')) && (
-                    <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
-                  )}
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping shrink-0" />
+                    )}
                   <h3 className="font-black text-xs uppercase tracking-wider select-none">
                     {activeModal.title}
                   </h3>
@@ -2804,13 +3442,18 @@ function App() {
   const renderRuleBookModal = () => {
     if (!isRuleBookOpen) return null;
     const isFlipMode = room?.gameMode === 'flip';
+    const isMercyMode = room?.gameMode === 'mercy';
+
+    const headerBg = isFlipMode ? 'bg-[#4c1d95]' : isMercyMode ? 'bg-[#c0392b]' : 'bg-brand-red';
+    const title = isFlipMode ? 'UNO FLIP™ Official Rules' : isMercyMode ? 'UNO No Mercy Official Rules' : 'UNO Classic Official Rules';
+
     return (
       <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm pointer-events-auto">
         <div className="relative w-full max-w-xl bg-white border-3 border-[#0f172a] rounded-[20px] shadow-[8px_8px_0_#0f172a] flex flex-col max-h-[80vh]">
           {/* Modal Header */}
-          <div className="bg-brand-red border-b-3 border-[#0f172a] px-6 py-4 rounded-t-[17px] flex items-center justify-between">
+          <div className={`${headerBg} border-b-3 border-[#0f172a] px-6 py-4 rounded-t-[17px] flex items-center justify-between`}>
             <h3 className="text-white font-black text-sm sm:text-base tracking-wider uppercase">
-              {isFlipMode ? 'UNO FLIP™ Official Rules' : 'UNO Classic Official Rules'}
+              {title}
             </h3>
             <button
               onClick={() => setIsRuleBookOpen(false)}
@@ -2889,8 +3532,112 @@ function App() {
                   </div>
                 </div>
               </>
+            ) : isMercyMode ? (
+              <>
+                {/* ── NO MERCY RULES ── */}
+                <div className="border-2 border-[#0f172a] p-3 rounded-lg bg-[#c0392b]/10">
+                  <span className="font-extrabold uppercase text-[#0f172a] block mb-1">
+                    UNO NO MERCY IN A NUTSHELL
+                  </span>
+                  <p className="leading-relaxed">
+                    UNO No Mercy plays like standard UNO but with <strong>brutal</strong> power cards that can stack. Draw cards accumulate across players until someone can't dodge — and if your hand exceeds <strong>25 cards</strong>, you're instantly <strong>eliminated</strong>. Last player standing wins!
+                  </p>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    HOW TO PLAY
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Match the top card of the discard pile by color, number, or action symbol.</li>
+                    <li>If you cannot play, draw one card. If it's playable, play it immediately; otherwise pass.</li>
+                    <li><strong>Draw cards stack!</strong> If a Draw Two is played, the next player must play another Draw Two to pass the penalty on — or absorb the full accumulated draw count.</li>
+                    <li><strong>Yell "UNO"</strong> when you have exactly 1 card left — or opponents can catch you and force you to draw 2!</li>
+                    <li>Any player whose hand reaches <strong>25 cards is immediately eliminated</strong>.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    ACTION CARDS
+                  </span>
+                  <ul className="space-y-1.5">
+                    <li><strong>Draw Two (+2):</strong> Next player must draw 2 cards and skip their turn — or counter with another Draw Two to stack the penalty.</li>
+                    <li><strong>Reverse:</strong> Reverses the direction of play.</li>
+                    <li><strong>Skip:</strong> Skips the next player's turn entirely.</li>
+                    <li><strong>Wild Card:</strong> Choose any color to continue play.</li>
+                    <li><strong>Wild Draw Four (+4):</strong> Choose color; next player draws 4 cards and loses their turn. Can be challenged — if you're caught having a matching color, you draw the 4 instead.</li>
+                    <li><strong>Wild Draw Two (Wild +2):</strong> Choose color; next player draws 2 and skips. Can stack with other draw cards.</li>
+                    <li><strong>Skip Everyone:</strong> Every other player is skipped — you get an immediate extra turn.</li>
+                    <li><strong>Discard All:</strong> Instantly discard every card of a chosen color from your hand.</li>
+                    <li><strong>Wild Shuffle Hands:</strong> Collect all hands, shuffle, and redistribute randomly.</li>
+                    <li><strong>Wild (Seven-0):</strong> Playing a 7 lets you swap your hand with any player; playing a 0 rotates all hands in play direction.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    STACKING DRAW CARDS
+                  </span>
+                  <p className="leading-relaxed mb-1">
+                    Draw penalties can be passed along the table. If Player A plays <strong>+2</strong>, Player B can respond with another <strong>+2</strong> to make it +4 for Player C, and so on. The chain breaks when a player cannot match — they absorb the full accumulated total.
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Draw Two stacks with Draw Two and Wild Draw Two.</li>
+                    <li>Wild Draw Four stacks with Wild Draw Four.</li>
+                    <li>Stacking across different draw types is <strong>not allowed</strong>.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    ELIMINATION RULE 💀
+                  </span>
+                  <p className="leading-relaxed">
+                    Any player who holds <strong>25 or more cards</strong> at the end of any turn is <strong>immediately eliminated</strong> from the game. Eliminated players' cards are removed and play continues. The last remaining player wins.
+                  </p>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    UNO CALL & CATCH
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>When you play down to 1 card, press <strong>UNO</strong> to declare it.</li>
+                    <li>If you forget, any opponent can <strong>Catch</strong> you and you draw 2 penalty cards.</li>
+                    <li>A false catch (opponent already called UNO or has more than 1 card) costs the catcher nothing — the catch simply fails.</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    WILD DRAW FOUR — CHALLENGE
+                  </span>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>A Wild Draw Four can only legally be played if you have <strong>no card matching the current color</strong>.</li>
+                    <li>The targeted player may <strong>Challenge</strong> the play before drawing.</li>
+                    <li>If the challenge is <strong>successful</strong> (player had a matching card), the offending player draws 4 instead.</li>
+                    <li>If the challenge <strong>fails</strong>, the challenger draws 6 cards (4 + 2 penalty).</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <span className="font-extrabold uppercase text-[#0f172a] block border-b-2 border-[#0f172a] pb-1 mb-2">
+                    SCORING
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 font-mono">
+                    <div>Number Cards (0-9): Face Value</div>
+                    <div>Draw Two / Skip / Reverse: 20 pts</div>
+                    <div>Skip Everyone / Discard All: 30 pts</div>
+                    <div>Wild / Wild Draw Two: 40 pts</div>
+                    <div>Wild Draw Four: 50 pts</div>
+                    <div>Wild Shuffle Hands: 60 pts</div>
+                  </div>
+                </div>
+              </>
             ) : (
               <>
+                {/* ── CLASSIC RULES ── */}
                 <div className="border-2 border-[#0f172a] p-3 rounded-lg bg-brand-blue/10">
                   <span className="font-extrabold uppercase text-[#0f172a] block mb-1">
                     UNO CLASSIC IN A NUTSHELL
@@ -2941,6 +3688,7 @@ function App() {
       </div>
     );
   };
+
 
   if (view === 'friends') {
     return (
@@ -3039,21 +3787,21 @@ function App() {
                   }
                 }}
               />
-              <label className={`brutalist-label ${roomError ? 'bg-[#cc3333]' : gameMode === 'flip' ? 'bg-brand-flip' : 'bg-brand-red'}`}>
+              <label className={`brutalist-label ${roomError ? 'bg-[#cc3333]' : gameMode === 'flip' ? 'bg-brand-flip' : gameMode === 'mercy' ? 'bg-[#e67e22]' : 'bg-brand-red'}`}>
                 {roomError ? 'Invalid Room ID!' : 'Room ID'}
               </label>
             </div>
 
-            {/* Game Mode Switcher (Host only chooses this) */}
-            <div className="flex flex-col items-center w-full max-w-[256px] mt-2 mb-4">
+            {/* Game Mode Switcher (Host only chooses this) — 3-way */}
+            <div className="flex flex-col items-center w-full max-w-[320px] mt-2 mb-4">
               <div className="flex w-full bg-neutral-card border-2 border-[#0f172a] rounded-[14px] p-0.5 shadow-[2px_2px_0_#0f172a] overflow-hidden relative">
                 {/* Sliding animated background highlight */}
                 <motion.div
                   className="absolute top-0.5 bottom-0.5 rounded-[10px] border-2 border-[#0f172a] shadow-[1px_1px_0_#0f172a] z-0"
-                  style={{ width: 'calc(50% - 3px)' }}
+                  style={{ width: 'calc(33.33% - 3px)' }}
                   animate={{
-                    x: gameMode === 'classic' ? 0 : '100%',
-                    backgroundColor: gameMode === 'classic' ? '#cc3333' : '#4c1d95'
+                    x: gameMode === 'classic' ? 0 : gameMode === 'flip' ? '100%' : '200%',
+                    backgroundColor: gameMode === 'classic' ? '#cc3333' : gameMode === 'flip' ? '#4c1d95' : '#e67e22'
                   }}
                   transition={{ type: 'spring', stiffness: 350, damping: 25 }}
                 />
@@ -3071,6 +3819,13 @@ function App() {
                     }`}
                 >
                   Flip
+                </button>
+                <button
+                  onClick={() => setGameMode('mercy')}
+                  className={`flex-1 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-[10px] cursor-pointer relative z-10 transition-colors duration-200 ${gameMode === 'mercy' ? 'text-white' : 'text-[#0f172a] hover:bg-neutral-bg/30'
+                    }`}
+                >
+                  No Mercy
                 </button>
               </div>
             </div>
@@ -3107,15 +3862,15 @@ function App() {
               </div>
             </div>
 
-            {/* 3D Host Game Button - Mattel Red / Flip Purple */}
+            {/* 3D Host Game Button - Mattel Red / Flip Purple / Mercy Orange */}
             <button
               onClick={handleHostGame}
               disabled={isLoading}
               className={`btn-3d w-[256px] ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
             >
               <span className="btn-3d-shadow" />
-              <span className={`btn-3d-edge ${gameMode === 'flip' ? 'btn-3d-edge-purple' : 'btn-3d-edge-red'}`} />
-              <div className={`btn-3d-front ${gameMode === 'flip' ? 'btn-3d-front-purple' : 'btn-3d-front-red'} flex items-center justify-center relative w-full px-12 gap-2`}>
+              <span className={`btn-3d-edge ${gameMode === 'flip' ? 'btn-3d-edge-purple' : gameMode === 'mercy' ? 'btn-3d-edge-orange' : 'btn-3d-edge-red'}`} />
+              <div className={`btn-3d-front ${gameMode === 'flip' ? 'btn-3d-front-purple' : gameMode === 'mercy' ? 'btn-3d-front-orange' : 'btn-3d-front-red'} flex items-center justify-center relative w-full px-12 gap-2`}>
                 {isLoading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -3151,7 +3906,7 @@ function App() {
           allBotNames={ALL_BOT_NAMES}
           botBgColors={BOT_BG_COLORS}
           onBack={() => setView('main')}
-          onStart={(cpuPlayerName: string, cpuGameMode: 'classic' | 'flip', cpuBots: any[], cpuAvatarSeed: string) => {
+          onStart={(cpuPlayerName: string, cpuGameMode: 'classic' | 'flip' | 'mercy', cpuBots: any[], cpuAvatarSeed: string) => {
             try { localStorage.removeItem('uno_reconnect_token'); } catch (_) { }
             isCpuGameRef.current = true;
             setIsLoading(true);
@@ -3190,9 +3945,9 @@ function App() {
           <div className="relative bg-neutral-card border-3 border-[#0f172a] rounded-[20px] pt-12 pb-6 px-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center w-full">
 
             {/* Dynamic Pill Header based on Game Mode */}
-            <div className={`absolute left-6 -top-5.5 ${room.gameMode === 'flip' ? 'bg-brand-flip' : 'bg-brand-red'} border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a]`}>
+            <div className={`absolute left-6 -top-5.5 ${room.gameMode === 'flip' ? 'bg-brand-flip' : room.gameMode === 'mercy' ? 'bg-[#e67e22]' : 'bg-brand-red'} border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a]`}>
               <h2 className="text-white font-black text-xs tracking-wider uppercase select-none">
-                {room.gameMode === 'flip' ? 'UNO FLIP' : 'UNO CLASSIC'}
+                {room.gameMode === 'flip' ? 'UNO FLIP' : room.gameMode === 'mercy' ? 'UNO NO MERCY' : 'UNO CLASSIC'}
               </h2>
             </div>
 
@@ -3404,7 +4159,16 @@ function App() {
       return [...room.players].sort((a: any, b: any) => (a.handCardCount || 0) - (b.handCardCount || 0));
     })();
 
-    const GAME_BACKGROUNDS: Record<string, string> = {
+    const GAME_BACKGROUNDS: Record<string, string> = room.gameMode === 'mercy' ? {
+      RED: '#d71809',     // Official No Mercy Red
+      BLUE: '#21558c',    // Official No Mercy Blue
+      GREEN: '#215513',   // Official No Mercy Green
+      YELLOW: '#e3ae15',  // Official No Mercy Yellow
+      PINK: '#ec4899',
+      TEAL: '#14b8a6',
+      ORANGE: '#f97316',
+      PURPLE: '#8b5cf6',
+    } : {
       RED: '#cc3333',     // Official Mattel Red
       BLUE: '#0956bf',    // Official UNO Blue
       GREEN: '#379711',   // Official UNO Green
@@ -3416,12 +4180,12 @@ function App() {
     };
 
     const activeColor = room.currentColor?.toUpperCase() || 'GREEN';
-    const bgColor = GAME_BACKGROUNDS[activeColor] || '#379711';
+    const bgColor = GAME_BACKGROUNDS[activeColor] || (room.gameMode === 'mercy' ? '#215513' : '#379711');
 
     return (
       <LayoutGroup>
-        <div 
-          style={{ 
+        <div
+          style={{
             backgroundColor: bgColor,
             backgroundImage: 'radial-gradient(circle at center, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.5) 100%)',
             backgroundBlendMode: 'multiply'
@@ -3430,32 +4194,49 @@ function App() {
         >
           <BetaPill />
 
-          {/* Transient Notification Banner */}
-          <AnimatePresence>
-            {gameNotification && (
-              <motion.div
-                initial={{ opacity: 0, y: -50, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -20, scale: 0.9 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                className="absolute top-6 left-1/2 -translate-x-1/2 z-[400] max-w-sm w-full px-4"
-              >
-                <div
-                  className={`border-3 border-[#0f172a] rounded-[16px] p-4 shadow-[4px_4px_0_#0f172a] text-center font-black uppercase text-xs tracking-wider flex items-center justify-center gap-2 select-none ${
-                    gameNotification.type === 'info'
-                      ? 'bg-[#ecd407] text-[#0f172a]'
-                      : gameNotification.type === 'warning'
-                      ? 'bg-[#ec4899] text-white'
-                      : gameNotification.type === 'error'
-                      ? 'bg-[#cc3333] text-white'
-                      : 'bg-white text-[#0f172a]'
-                  }`}
+
+          {/* Stacking Notification Banners — top-right near settings button, newest first */}
+          <div
+            style={{
+              position: 'absolute',
+              top: isVeryShort ? '68px' : '84px',
+              right: isVeryShort ? '8px' : '16px',
+              zIndex: 400,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              alignItems: 'flex-end',
+              pointerEvents: 'none',
+            }}
+          >
+            <AnimatePresence mode="popLayout">
+              {gameNotifications.map((notif) => (
+                <motion.div
+                  key={notif.id}
+                  layout
+                  initial={{ opacity: 0, x: 60, scale: 0.88 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 60, scale: 0.88 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                  style={{ maxWidth: '290px', width: 'max-content' }}
                 >
-                  <span>{gameNotification.message}</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  <div
+                    className={`border-3 border-[#0f172a] rounded-[14px] px-4 py-3 shadow-[4px_4px_0_#0f172a] text-right font-black uppercase text-xs tracking-wider flex items-center justify-end gap-2 select-none ${notif.type === 'info'
+                        ? 'bg-[#ecd407] text-[#0f172a]'
+                        : notif.type === 'warning'
+                          ? 'bg-[#ec4899] text-white'
+                          : notif.type === 'error'
+                            ? 'bg-[#cc3333] text-white'
+                            : 'bg-white text-[#0f172a]'
+                      }`}
+                  >
+                    <span>{notif.message}</span>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
 
           {/* Opponents Avatars and Cards */}
           {opponents.map((opp, idx) => {
@@ -3530,17 +4311,27 @@ function App() {
                     isTurn={room.players[room.currentTurn]?.id === opp.id}
                     isMe={false}
                     turnStartedAt={room.turnStartedAt}
+                    isEliminated={(room.eliminatedPlayers || []).includes(opp.id)}
+                    gameMode={room.gameMode}
+                    side={room.side}
+                    position={
+                      opponents.length === 1 ? 'top' :
+                        opponents.length === 2 ? (idx === 0 ? 'left' : 'right') :
+                          (idx === 0 ? 'left' : idx === 1 ? 'top' : 'right')
+                    }
                   />
                   <div className="relative flex items-center justify-center h-[86px] sm:h-[136px]">
-                    <OpponentCardFan
-                      cardCount={opp.handCardCount || 0}
-                      direction={fanDirection}
-                      side={room.side}
-                      gameMode={room.gameMode}
-                      isShort={isShort}
-                      isVeryShort={isVeryShort}
-                      hand={opp.hand}
-                    />
+                    {!(room.eliminatedPlayers || []).includes(opp.id) && (
+                      <OpponentCardFan
+                        cardCount={opp.handCardCount || 0}
+                        direction={fanDirection}
+                        side={room.side}
+                        gameMode={room.gameMode}
+                        isShort={isShort}
+                        isVeryShort={isVeryShort}
+                        hand={opp.hand}
+                      />
+                    )}
                   </div>
                 </div>
               </div>
@@ -3564,6 +4355,10 @@ function App() {
               isTurn={room.players[room.currentTurn]?.id === myPlayerId}
               isMe={true}
               turnStartedAt={room.turnStartedAt}
+              isEliminated={(room.eliminatedPlayers || []).includes(myPlayerId)}
+              gameMode={room.gameMode}
+              side={room.side}
+              position="player"
             />
           </div>
 
@@ -3590,8 +4385,8 @@ function App() {
                   className="btn-3d w-44"
                 >
                   <span className="btn-3d-shadow" />
-                  <span className="btn-3d-edge" style={{ 
-                    background: 'linear-gradient(to left, #7c2d12 0%, #ea580c 8%, #ea580c 92%, #7c2d12 100%)' 
+                  <span className="btn-3d-edge" style={{
+                    background: 'linear-gradient(to left, #7c2d12 0%, #ea580c 8%, #ea580c 92%, #7c2d12 100%)'
                   }} />
                   <div className="btn-3d-front px-4 flex items-center justify-center gap-2 font-black select-none uppercase tracking-wider text-xs text-white bg-orange-600 h-12 shadow-inner animate-pulse">
                     <Zap className="w-4 h-4" />
@@ -3611,8 +4406,8 @@ function App() {
               <span className="btn-3d-shadow" />
               {room.unoStates[myPlayerId] ? (
                 <>
-                  <span className="btn-3d-edge" style={{ 
-                    background: 'linear-gradient(to left, #14532d 0%, #166534 8%, #166534 92%, #14532d 100%)' 
+                  <span className="btn-3d-edge" style={{
+                    background: 'linear-gradient(to left, #14532d 0%, #166534 8%, #166534 92%, #14532d 100%)'
                   }} />
                   <div className="btn-3d-front flex items-center justify-center gap-2 font-black select-none uppercase tracking-widest text-xs text-white bg-[#166534] h-12">
                     <Check className="w-4 h-4" />
@@ -3766,54 +4561,54 @@ function App() {
                 }}
               >
                 {(() => {
-                  const colors = getPlayDirectionArrowColors(room.currentColor || 'GREEN');
+                  const colors = getPlayDirectionArrowColors(room.currentColor || 'GREEN', room.gameMode);
                   const isClockwise = (room.direction || 1) === 1;
 
                   const arrowData = isClockwise
                     ? [
-                        {
-                          d: "M 393.8,38.1 A 315,315 0 0,1 661.9,306.2",
-                          points: "662,306 677,284 641,289",
-                          gradX1: 393.8, gradY1: 38.1, gradX2: 661.9, gradY2: 306.2
-                        },
-                        {
-                          d: "M 661.9,393.8 A 315,315 0 0,1 393.8,661.9",
-                          points: "394,662 416,677 411,641",
-                          gradX1: 661.9, gradY1: 393.8, gradX2: 393.8, gradY2: 661.9
-                        },
-                        {
-                          d: "M 306.2,661.9 A 315,315 0 0,1 38.1,393.8",
-                          points: "38,394 23,416 59,411",
-                          gradX1: 306.2, gradY1: 661.9, gradX2: 38.1, gradY2: 393.8
-                        },
-                        {
-                          d: "M 38.1,306.2 A 315,315 0 0,1 306.2,38.1",
-                          points: "306,38 284,23 289,59",
-                          gradX1: 38.1, gradY1: 306.2, gradX2: 306.2, gradY2: 38.1
-                        }
-                      ]
+                      {
+                        d: "M 393.8,38.1 A 315,315 0 0,1 661.9,306.2",
+                        points: "662,306 677,284 641,289",
+                        gradX1: 393.8, gradY1: 38.1, gradX2: 661.9, gradY2: 306.2
+                      },
+                      {
+                        d: "M 661.9,393.8 A 315,315 0 0,1 393.8,661.9",
+                        points: "394,662 416,677 411,641",
+                        gradX1: 661.9, gradY1: 393.8, gradX2: 393.8, gradY2: 661.9
+                      },
+                      {
+                        d: "M 306.2,661.9 A 315,315 0 0,1 38.1,393.8",
+                        points: "38,394 23,416 59,411",
+                        gradX1: 306.2, gradY1: 661.9, gradX2: 38.1, gradY2: 393.8
+                      },
+                      {
+                        d: "M 38.1,306.2 A 315,315 0 0,1 306.2,38.1",
+                        points: "306,38 284,23 289,59",
+                        gradX1: 38.1, gradY1: 306.2, gradX2: 306.2, gradY2: 38.1
+                      }
+                    ]
                     : [
-                        {
-                          d: "M 661.9,306.2 A 315,315 0 0,0 393.8,38.1",
-                          points: "394,38 416,23 411,59",
-                          gradX1: 661.9, gradY1: 306.2, gradX2: 393.8, gradY2: 38.1
-                        },
-                        {
-                          d: "M 393.8,661.9 A 315,315 0 0,0 661.9,393.8",
-                          points: "662,394 677,416 641,411",
-                          gradX1: 393.8, gradY1: 661.9, gradX2: 661.9, gradY2: 393.8
-                        },
-                        {
-                          d: "M 38.1,393.8 A 315,315 0 0,0 306.2,661.9",
-                          points: "306,662 284,677 289,641",
-                          gradX1: 38.1, gradY1: 393.8, gradX2: 306.2, gradY2: 661.9
-                        },
-                        {
-                          d: "M 306.2,38.1 A 315,315 0 0,0 38.1,306.2",
-                          points: "38,306 23,284 59,289",
-                          gradX1: 306.2, gradY1: 38.1, gradX2: 38.1, gradY2: 306.2
-                        }
-                      ];
+                      {
+                        d: "M 661.9,306.2 A 315,315 0 0,0 393.8,38.1",
+                        points: "394,38 416,23 411,59",
+                        gradX1: 661.9, gradY1: 306.2, gradX2: 393.8, gradY2: 38.1
+                      },
+                      {
+                        d: "M 393.8,661.9 A 315,315 0 0,0 661.9,393.8",
+                        points: "662,394 677,416 641,411",
+                        gradX1: 393.8, gradY1: 661.9, gradX2: 661.9, gradY2: 393.8
+                      },
+                      {
+                        d: "M 38.1,393.8 A 315,315 0 0,0 306.2,661.9",
+                        points: "306,662 284,677 289,641",
+                        gradX1: 38.1, gradY1: 393.8, gradX2: 306.2, gradY2: 661.9
+                      },
+                      {
+                        d: "M 306.2,38.1 A 315,315 0 0,0 38.1,306.2",
+                        points: "38,306 23,284 59,289",
+                        gradX1: 306.2, gradY1: 38.1, gradX2: 38.1, gradY2: 306.2
+                      }
+                    ];
 
                   return (
                     <svg viewBox="0 0 700 700" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" style={{ filter: 'drop-shadow(0px 8px 12px rgba(0,0,0,0.4))' }}>
@@ -3826,7 +4621,7 @@ function App() {
                             <feMergeNode in="SourceGraphic" />
                           </feMerge>
                         </filter>
-                        
+
                         {/* Tail blur filter for "fire's end" tail */}
                         <filter id="tail-blur" x="-30%" y="-30%" width="160%" height="160%">
                           <feGaussianBlur stdDeviation="12" result="blur" />
@@ -3887,48 +4682,68 @@ function App() {
 
             {/* Draw Pile (Clickable to draw a card) */}
             <div
-              onClick={() => socket.emit('draw_card', { roomId: room.roomId })}
-              className="relative cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 flex-shrink-0"
+              onClick={() => {
+                if (room.players[room.currentTurn]?.id === myPlayerId && !(room.eliminatedPlayers || []).includes(myPlayerId)) {
+                  socket.emit('draw_card', { roomId: room.roomId });
+                }
+              }}
+              className={`relative select-none flex-shrink-0 transition-transform ${room.players[room.currentTurn]?.id === myPlayerId && !(room.eliminatedPlayers || []).includes(myPlayerId) ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-not-allowed opacity-75'}`}
               style={{
-                width: room.gameMode === 'flip' ? (isMobile ? '81px' : '137px') : (isMobile ? '90px' : '152px'),
+                width: room.gameMode === 'flip'
+                  ? (isMobile ? '81px' : '137px')
+                  : room.gameMode === 'mercy'
+                    ? (isMobile ? '92px' : '156px')
+                    : (isMobile ? '90px' : '152px'),
                 height: isMobile ? '130px' : '220px',
               }}
-              title="Draw Card"
+              title={room.gameMode === 'mercy' && room.drawStack?.count > 0 ? `Draw ${room.drawStack.count} cards (or stack)` : 'Draw Card'}
             >
               <div
-                className="absolute inset-0 bg-white rounded-[7px] sm:rounded-[12px]"
+                className={`absolute inset-0 rounded-[7px] sm:rounded-[12px] ${(room.gameMode === 'mercy' || (room.gameMode === 'flip' && room.side === 'dark')) ? 'bg-black' : 'bg-white'}`}
                 style={{
                   transform: 'translate(4px, 4px)',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
                 }}
               />
               <div
-                className="absolute inset-0 bg-white rounded-[7px] sm:rounded-[12px]"
+                className={`absolute inset-0 rounded-[7px] sm:rounded-[12px] ${(room.gameMode === 'mercy' || (room.gameMode === 'flip' && room.side === 'dark')) ? 'bg-black' : 'bg-white'}`}
                 style={{
                   transform: 'translate(2px, 2px)',
                   boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
                 }}
               />
               <div
-                className={`absolute inset-0 rounded-[7px] sm:rounded-[12px] overflow-hidden flex items-center justify-center ${room.gameMode === 'flip' ? 'shadow-[0_16px_36px_-4px_rgba(0,0,0,0.55),0_6px_12px_rgba(0,0,0,0.35)]' : 'shadow-[0_6px_12px_rgba(0,0,0,0.25)]'}`}
-                style={{ backgroundColor: '#ffffff' }}
+                className={`absolute inset-0 rounded-[7px] sm:rounded-[12px] overflow-hidden flex items-center justify-center ${(room.gameMode === 'mercy' || (room.gameMode === 'flip' && room.side === 'dark')) ? 'shadow-[0_0_0_1.5px_rgba(255,255,255,0.25),0_16px_36px_-4px_rgba(0,0,0,0.6),0_6px_12px_rgba(0,0,0,0.4)]' : 'shadow-[0_6px_12px_rgba(0,0,0,0.25)]'}`}
+                style={{ backgroundColor: (room.gameMode === 'mercy' || (room.gameMode === 'flip' && room.side === 'dark')) ? '#000000' : '#ffffff' }}
               >
                 <img
-                  src={room.gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : '/cards/Deck.png'}
+                  src={room.gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : room.gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/Deck.png'}
                   alt="Draw Deck"
-                  className={room.gameMode === 'flip' ? 'absolute pointer-events-none' : 'w-full h-full pointer-events-none object-contain'}
+                  className={room.gameMode === 'flip' ? 'absolute pointer-events-none' : room.gameMode === 'mercy' ? 'w-full h-full pointer-events-none object-cover block' : 'w-full h-full pointer-events-none object-contain block'}
                   style={
                     room.gameMode === 'flip'
                       ? {
-                          ...FLIP_CROP_STYLE,
-                          imageRendering: 'auto',
-                        }
+                        ...FLIP_CROP_STYLE,
+                        imageRendering: 'auto',
+                      }
                       : {
-                          imageRendering: 'pixelated',
-                        }
+                        imageRendering: room.gameMode === 'mercy' ? 'auto' : 'pixelated',
+                      }
                   }
                 />
               </div>
+
+              {/* No Mercy Draw Stack Badge on Deck */}
+              {room.gameMode === 'mercy' && room.drawStack && room.drawStack.count > 0 && (
+                <div
+                  className="absolute -top-2 -right-2 z-30 w-7 h-7 sm:w-10 sm:h-10 rounded-full border-2 border-[#0f172a] bg-[#cc3333] shadow-[1px_1px_0_#0f172a] sm:shadow-[2px_2px_0_#0f172a] flex items-center justify-center select-none pointer-events-none"
+                >
+                  <div className="flex items-center justify-center font-black text-white text-[9px] sm:text-[14px] leading-none">
+                    <span className="text-[7px] sm:text-[11px] mr-[0.5px] sm:mr-[1px] transform -translate-y-[0.5px]">+</span>
+                    <span>{room.drawStack.count}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Discard Pile Stack */}
@@ -3938,84 +4753,33 @@ function App() {
               gameMode={room.gameMode}
               lastPlayedCardKey={lastPlayedCardKey}
               onResetPlayedKey={() => setLastPlayedCardKey(null)}
+              pendingWildCard={pendingWildCard}
+              setPendingWildCard={setPendingWildCard}
+              socket={socket}
+              setLastPlayedCardKey={setLastPlayedCardKey}
             />
           </div>
 
           {/* Fanned Player Cards View in React (Facing the player) */}
-          <HandCanvas
-            hand={hand}
-            side={room.side}
-            gameMode={room.gameMode}
-            roomId={room.roomId}
-            socket={socket}
-            onCardPlay={setLastPlayedCardKey}
-            room={room}
-            myPlayerId={myPlayerId}
-            onPlayWild={(cardId, cardKey) => setPendingWildCard({ cardId, key: cardKey })}
-            lastPlayedCardKey={lastPlayedCardKey}
-            soundEnabled={soundEnabled}
-            isShort={isShort}
-            isVeryShort={isVeryShort}
-          />
+          {!(room.eliminatedPlayers || []).includes(myPlayerId) && (
+            <HandCanvas
+              hand={hand}
+              side={room.side}
+              gameMode={room.gameMode}
+              roomId={room.roomId}
+              socket={socket}
+              onCardPlay={setLastPlayedCardKey}
+              room={room}
+              myPlayerId={myPlayerId}
+              onPlayWild={(cardId, cardKey) => setPendingWildCard({ cardId, key: cardKey })}
+              lastPlayedCardKey={lastPlayedCardKey}
+              soundEnabled={soundEnabled}
+              isShort={isShort}
+              isVeryShort={isVeryShort}
+            />
+          )}
 
-          {/* Wild Color Selection Modal */}
-          <AnimatePresence>
-            {pendingWildCard && (
-              <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                  className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full"
-                >
-                  <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-5 select-none">
-                    Choose a Color
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4 w-full">
-                    {(() => {
-                      const isDarkSide = room.gameMode === 'flip' && room.side === 'dark';
-                      const colors = isDarkSide
-                        ? [
-                          { name: 'PINK', hex: '#ec4899', hover: '#db2777', text: 'white' },
-                          { name: 'TEAL', hex: '#14b8a6', hover: '#0d9488', text: 'white' },
-                          { name: 'ORANGE', hex: '#f97316', hover: '#ea580c', text: 'white' },
-                          { name: 'PURPLE', hex: '#8b5cf6', hover: '#7c3aed', text: 'white' }
-                        ]
-                        : [
-                          { name: 'RED', hex: '#cc3333', hover: '#b32424', text: 'white' },
-                          { name: 'BLUE', hex: '#0956bf', hover: '#0748a1', text: 'white' },
-                          { name: 'GREEN', hex: '#379711', hover: '#2c7a0d', text: 'white' },
-                          { name: 'YELLOW', hex: '#ecd407', hover: '#d8c206', text: '#0f172a' }
-                        ];
-                      return colors.map((c) => (
-                        <button
-                          key={c.name}
-                          onClick={() => {
-                            const cardId = pendingWildCard.cardId;
-                            const key = pendingWildCard.key;
-                            setLastPlayedCardKey(key);
-                            socket.emit('play_card', { roomId: room.roomId, cardId, chosenColor: c.name });
-                            setPendingWildCard(null);
-                          }}
-                          style={{ backgroundColor: c.hex }}
-                          className="py-4 border-2 border-[#0f172a] rounded-[14px] shadow-[3px_3px_0_#0f172a] hover:scale-105 active:scale-95 transition-all cursor-pointer font-black text-xs uppercase tracking-wider"
-                          type="button"
-                        >
-                          <span style={{ color: c.text }}>{c.name}</span>
-                        </button>
-                      ));
-                    })()}
-                  </div>
-                  <button
-                    onClick={() => setPendingWildCard(null)}
-                    className="mt-6 px-4 py-2 border-2 border-[#0f172a] rounded-lg bg-neutral-bg hover:bg-neutral-border text-[#0f172a] font-bold text-xs uppercase cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                </motion.div>
-              </div>
-            )}
-          </AnimatePresence>
+
 
           {/* Challenge Wild Draw Modal */}
           <AnimatePresence>
@@ -4029,34 +4793,97 @@ function App() {
                 >
                   {room.pendingChallenge.targetPlayerId === myPlayerId ? (
                     <>
-                      <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center">
-                        {room.pendingChallenge.type.replace(/_/g, ' ')} Played!
-                      </h3>
-                      <p className="text-xs text-neutral-muted font-bold text-center mb-6 leading-relaxed">
-                        {room.players.find((p: any) => p.id === room.pendingChallenge.playedBy)?.name || 'Someone'} played a {room.pendingChallenge.type.replace(/_/g, ' ')}. You can challenge it if you think they had a matching color card in their hand!
-                      </p>
-                      <div className="flex flex-col gap-3 w-full">
-                        <button
-                          onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: true })}
-                          className="btn-3d w-full"
-                        >
-                          <span className="btn-3d-shadow" />
-                          <span className="btn-3d-edge btn-3d-edge-purple" />
-                          <div className="btn-3d-front btn-3d-front-purple flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
-                            Challenge Play
+                      {(room.pendingChallenge.type === 'WILD_ROULETTE' || room.pendingChallenge.type === 'WILD_DRAW_COLOR') ? (
+                        <>
+                          <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center">
+                            {room.pendingChallenge.type === 'WILD_ROULETTE' ? 'COLOR ROULETTE' : 'WILD DRAW COLOR'}!
+                          </h3>
+                          <p className="text-xs text-neutral-muted font-bold text-center mb-6 leading-relaxed">
+                            {room.players.find((p: any) => p.id === room.pendingChallenge.playedBy)?.name || 'Someone'} played a {room.pendingChallenge.type === 'WILD_ROULETTE' ? 'Color Roulette' : 'Wild Draw Color'}. You must draw cards until you get a{' '}
+                            <span
+                              className="font-black px-2 py-0.5 rounded border border-[#0f172a]"
+                              style={{
+                                color:
+                                  room.gameMode === 'mercy'
+                                    ? room.pendingChallenge.chosenColor === 'YELLOW'
+                                      ? '#e3ae15'
+                                      : room.pendingChallenge.chosenColor === 'RED'
+                                        ? '#d71809'
+                                        : room.pendingChallenge.chosenColor === 'BLUE'
+                                          ? '#21558c'
+                                          : room.pendingChallenge.chosenColor === 'GREEN'
+                                            ? '#215513'
+                                            : '#0f172a'
+                                    : room.pendingChallenge.chosenColor === 'YELLOW'
+                                      ? '#d8c206'
+                                      : room.pendingChallenge.chosenColor === 'RED'
+                                        ? '#cc3333'
+                                        : room.pendingChallenge.chosenColor === 'BLUE'
+                                          ? '#0956bf'
+                                          : room.pendingChallenge.chosenColor === 'GREEN'
+                                            ? '#379711'
+                                            : room.pendingChallenge.chosenColor === 'PINK'
+                                              ? '#ec4899'
+                                              : room.pendingChallenge.chosenColor === 'TEAL'
+                                                ? '#14b8a6'
+                                                : room.pendingChallenge.chosenColor === 'ORANGE'
+                                                  ? '#f97316'
+                                                  : room.pendingChallenge.chosenColor === 'PURPLE'
+                                                    ? '#8b5cf6'
+                                                    : '#0f172a',
+                                backgroundColor: 'rgba(15, 23, 42, 0.05)'
+                              }}
+                            >
+                              {room.pendingChallenge.chosenColor}
+                            </span>{' '}
+                            card.
+                          </p>
+                          <div className="w-full">
+                            <button
+                              onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: false })}
+                              className="btn-3d w-full"
+                            >
+                              <span className="btn-3d-shadow" />
+                              <span className="btn-3d-edge btn-3d-edge-red" />
+                              <div className="btn-3d-front btn-3d-front-red flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                                Draw Cards
+                              </div>
+                            </button>
                           </div>
-                        </button>
-                        <button
-                          onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: false })}
-                          className="btn-3d w-full"
-                        >
-                          <span className="btn-3d-shadow" />
-                          <span className="btn-3d-edge btn-3d-edge-blue" />
-                          <div className="btn-3d-front btn-3d-front-blue flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
-                            Accept (+Draw)
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center">
+                            {room.pendingChallenge.type.replace(/_/g, ' ')} Played!
+                          </h3>
+                          <p className="text-xs text-neutral-muted font-bold text-center mb-6 leading-relaxed">
+                            {room.players.find((p: any) => p.id === room.pendingChallenge.playedBy)?.name || 'Someone'} played a {room.pendingChallenge.type.replace(/_/g, ' ')}.<br />
+                            <span className="text-[#e67e22] font-black uppercase tracking-wider text-[10px] block mt-1">Rule:</span> You can challenge if you think they had a card matching the color before this wild was played. If you are <span className="text-green-600 font-bold">right</span>, they draw the penalty. If you are <span className="text-red-600 font-bold">wrong</span>, you must draw the penalty + 2 extra cards!
+                          </p>
+                          <div className="flex flex-col gap-3 w-full">
+                            <button
+                              onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: true })}
+                              className="btn-3d w-full"
+                            >
+                              <span className="btn-3d-shadow" />
+                              <span className="btn-3d-edge btn-3d-edge-purple" />
+                              <div className="btn-3d-front btn-3d-front-purple flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                                Challenge Play
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => socket.emit('challenge_wild_draw_four', { roomId: room.roomId, wantsToChallenge: false })}
+                              className="btn-3d w-full"
+                            >
+                              <span className="btn-3d-shadow" />
+                              <span className="btn-3d-edge btn-3d-edge-blue" />
+                              <div className="btn-3d-front btn-3d-front-blue flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs">
+                                Accept (+Draw)
+                              </div>
+                            </button>
                           </div>
-                        </button>
-                      </div>
+                        </>
+                      )}
                     </>
                   ) : (
                     <>
@@ -4068,6 +4895,205 @@ function App() {
                       </p>
                     </>
                   )}
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+
+          {/* Challenge Outcome Modal */}
+          <AnimatePresence>
+            {activeChallengeOutcome && (
+              <div className="fixed inset-0 z-[610] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-xl w-full"
+                >
+                  {(() => {
+                    const challengerName = room.players.find((p: any) => p.id === activeChallengeOutcome.challengerId)?.name || 'Someone';
+                    const challengedName = room.players.find((p: any) => p.id === activeChallengeOutcome.playedBy)?.name || 'Someone';
+                    const isGuilty = activeChallengeOutcome.guilty;
+                    const colorMap: Record<string, string> = room.gameMode === 'mercy' ? {
+                      YELLOW: '#e3ae15',
+                      RED: '#d71809',
+                      BLUE: '#21558c',
+                      GREEN: '#215513',
+                      PINK: '#ec4899',
+                      TEAL: '#14b8a6',
+                      ORANGE: '#f97316',
+                      PURPLE: '#8b5cf6'
+                    } : {
+                      YELLOW: '#d8c206',
+                      RED: '#cc3333',
+                      BLUE: '#0956bf',
+                      GREEN: '#379711',
+                      PINK: '#ec4899',
+                      TEAL: '#14b8a6',
+                      ORANGE: '#f97316',
+                      PURPLE: '#8b5cf6'
+                    };
+                    const targetColorHex = colorMap[activeChallengeOutcome.colorBeforePlay] || '#0f172a';
+
+                    return (
+                      <>
+                        {/* Title & Badge */}
+                        <div className="flex flex-col items-center gap-2 mb-4">
+                          <div className={`w-14 h-14 rounded-full border-3 border-[#0f172a] flex items-center justify-center shadow-[3px_3px_0_#0f172a] ${isGuilty ? 'bg-green-500' : 'bg-red-500'}`}>
+                            {isGuilty ? (
+                              <Check className="w-8 h-8 text-white stroke-[3]" />
+                            ) : (
+                              <X className="w-8 h-8 text-white stroke-[3]" />
+                            )}
+                          </div>
+                          <h3 className={`font-black text-xl tracking-widest uppercase text-center ${isGuilty ? 'text-green-600' : 'text-red-600'}`}>
+                            {isGuilty ? 'Challenge Successful!' : 'Challenge Failed!'}
+                          </h3>
+                        </div>
+
+                        {/* Description */}
+                        <p className="text-xs font-bold text-neutral-muted text-center mb-6 leading-relaxed px-4">
+                          {isGuilty ? (
+                            <span>
+                              <strong className="text-[#0f172a]">{challengerName}</strong> successfully caught <strong className="text-[#0f172a]">{challengedName}</strong> bluffing! <strong className="text-[#0f172a]">{challengedName}</strong> had matching cards of the color{' '}
+                              <span className="px-2 py-0.5 rounded border border-[#0f172a] font-black" style={{ color: targetColorHex, backgroundColor: 'rgba(15,23,42,0.05)' }}>
+                                {activeChallengeOutcome.colorBeforePlay}
+                              </span>{' '}
+                              and must draw <strong className="text-[#0f172a]">{activeChallengeOutcome.cardsDrawn} cards</strong> as penalty!
+                            </span>
+                          ) : (
+                            <span>
+                              <strong className="text-[#0f172a]">{challengerName}</strong> challenged <strong className="text-[#0f172a]">{challengedName}</strong> but failed! <strong className="text-[#0f172a]">{challengedName}</strong> did not have any cards matching{' '}
+                              <span className="px-2 py-0.5 rounded border border-[#0f172a] font-black" style={{ color: targetColorHex, backgroundColor: 'rgba(15,23,42,0.05)' }}>
+                                {activeChallengeOutcome.colorBeforePlay}
+                              </span>. <strong className="text-[#0f172a]">{challengerName}</strong> must draw <strong className="text-[#0f172a]">{activeChallengeOutcome.cardsDrawn} cards</strong> (draw penalty + 2 extra cards)!
+                            </span>
+                          )}
+                        </p>
+
+                        {/* Hand Reveal Grid */}
+                        <div className="w-full bg-[#f8fafc] border-2 border-[#0f172a] rounded-[16px] p-4 mb-6 shadow-[3px_3px_0_#0f172a]">
+                          <div className="text-[10px] font-black uppercase text-neutral-muted tracking-wider mb-3 text-center">
+                            Revealed Hand of {challengedName} (matching cards highlighted)
+                          </div>
+
+                          {activeChallengeOutcome.playedPlayerHand && activeChallengeOutcome.playedPlayerHand.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 justify-center max-h-48 overflow-y-auto py-2 px-1">
+                              {activeChallengeOutcome.playedPlayerHand.map((cardId: string, index: number) => {
+                                const face = getActiveCardFaceFrontend(cardId, room.side, room.gameMode);
+                                const card = normalizeCardClient(face);
+                                const isMatching = card.color === activeChallengeOutcome.colorBeforePlay;
+
+                                return (
+                                  <div
+                                    key={index}
+                                    style={{
+                                      border: isMatching ? '4px solid #ea580c' : '2px solid #0f172a',
+                                      borderRadius: '14px',
+                                      padding: '2px',
+                                      boxShadow: isMatching ? '0 0 12px rgba(234, 88, 12, 0.6)' : 'none',
+                                      transform: isMatching ? 'scale(1.05)' : 'scale(0.95)',
+                                      transition: 'all 0.2s ease-in-out'
+                                    }}
+                                  >
+                                    <UnoCard
+                                      cardId={cardId}
+                                      side={room.side}
+                                      gameMode={room.gameMode}
+                                      disabled={true}
+                                      className="!h-24"
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-xs font-bold text-center text-neutral-muted py-4">
+                              Hand is empty.
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Close button */}
+                        <button
+                          onClick={() => setActiveChallengeOutcome(null)}
+                          className="btn-3d w-full max-w-xs"
+                        >
+                          <span className="btn-3d-shadow" />
+                          <span className="btn-3d-edge btn-3d-edge-blue" />
+                          <div className="btn-3d-front btn-3d-front-blue flex items-center justify-center font-bold select-none uppercase tracking-wider text-xs h-10">
+                            Got It
+                          </div>
+                        </button>
+                      </>
+                    );
+                  })()}
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+
+          {/* No Mercy: 7s Hand Swap Modal */}
+          <AnimatePresence>
+            {room.gameMode === 'mercy' && room.pendingSevenSwap && room.pendingSevenSwap.playedBy === myPlayerId && (
+              <div className="fixed inset-0 z-[610] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#e67e22] flex flex-col items-center max-w-sm w-full"
+                >
+                  <div className="w-12 h-12 rounded-full bg-[#e67e22] border-3 border-[#0f172a] flex items-center justify-center mb-3 shadow-[3px_3px_0_#0f172a]">
+                    <span className="text-white font-black text-2xl select-none">7</span>
+                  </div>
+                  <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-1 select-none text-center">
+                    7 Played! Swap Hands
+                  </h3>
+                  <p className="text-xs text-neutral-muted font-bold text-center mb-5 leading-relaxed">
+                    Choose an opponent to swap your hand with!
+                  </p>
+                  <div className="flex flex-col gap-2 w-full">
+                    {room.players
+                      .filter((p: any) => p.id !== myPlayerId && !(room.eliminatedPlayers || []).includes(p.id))
+                      .map((p: any) => (
+                        <button
+                          key={p.id}
+                          onClick={() => socket.emit('resolve_seven_swap', { roomId: room.roomId, targetPlayerId: p.id })}
+                          className="btn-3d w-full"
+                        >
+                          <span className="btn-3d-shadow" />
+                          <span className="btn-3d-edge btn-3d-edge-orange" />
+                          <div className="btn-3d-front btn-3d-front-orange flex items-center justify-center gap-2 font-bold select-none uppercase tracking-wider text-xs">
+                            <span>Swap with {p.name}</span>
+                            <span className="text-white/70 text-[10px]">({p.handCardCount} cards)</span>
+                          </div>
+                        </button>
+                      ))
+                    }
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* No Mercy: Waiting for 7 swap (other players see this) */}
+          <AnimatePresence>
+            {room.gameMode === 'mercy' && room.pendingSevenSwap && room.pendingSevenSwap.playedBy !== myPlayerId && (
+              <div className="fixed inset-0 z-[610] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  className="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 shadow-[8px_8px_0_#e67e22] flex flex-col items-center max-w-sm w-full"
+                >
+                  <h3 className="text-[#0f172a] font-black text-lg tracking-wider uppercase mb-2 select-none text-center animate-pulse">
+                    Hand Swap in Progress...
+                  </h3>
+                  <p className="text-xs text-neutral-muted font-bold text-center leading-relaxed">
+                    {room.players.find((p: any) => p.id === room.pendingSevenSwap.playedBy)?.name || 'Someone'} played a 7 and is choosing who to swap hands with!
+                  </p>
                 </motion.div>
               </div>
             )}
@@ -4292,22 +5318,27 @@ function App() {
               onMouseMove={(e) => handleShowcaseMouseMove(e, 'classic')}
               onMouseLeave={() => handleShowcaseMouseLeave('classic')}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative overflow-hidden"
+              onClick={() => {
+                setGameMode('classic');
+                setNameError(false);
+                setView('friends');
+              }}
+              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative overflow-hidden cursor-pointer"
             >
               <div className="mt-2">
-                <div 
-                  className="mb-4 flex items-center justify-start select-none" 
+                <div
+                  className="mb-4 flex items-center justify-start select-none"
                   style={{ perspective: '600px' }}
                 >
-                  <motion.div 
+                  <motion.div
                     className="w-[56px] h-[84px] rounded-[8px] overflow-hidden bg-white relative shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
                     animate={classicHover}
                     transition={{ type: 'spring', stiffness: 180, damping: 15 }}
                   >
-                    <img 
-                      src="/cards/Red_7.png" 
-                      alt="Classic UNO Card" 
-                      className="w-full h-full object-contain pointer-events-none" 
+                    <img
+                      src="/cards/Red_7.png"
+                      alt="Classic UNO Card"
+                      className="w-full h-full object-contain pointer-events-none"
                     />
                   </motion.div>
                 </div>
@@ -4326,7 +5357,12 @@ function App() {
               onMouseMove={(e) => handleShowcaseMouseMove(e, 'flip')}
               onMouseLeave={() => handleShowcaseMouseLeave('flip')}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative"
+              onClick={() => {
+                setGameMode('flip');
+                setNameError(false);
+                setView('friends');
+              }}
+              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative cursor-pointer"
             >
               {/* NEW! Starburst Badge (half on main card, half outside) */}
               <div className="absolute -top-6 -right-6 w-14 h-14 z-20 flex items-center justify-center pointer-events-none drop-shadow-[2.5px_2.5px_0_#0f172a]">
@@ -4354,31 +5390,31 @@ function App() {
                 </svg>
               </div>
               <div className="mt-2">
-                <div 
-                  className="mb-4 flex items-center justify-start select-none" 
+                <div
+                  className="mb-4 flex items-center justify-start select-none"
                   style={{ perspective: '600px' }}
                 >
-                  <motion.div 
+                  <motion.div
                     className="relative"
                     animate={flipHover}
                     transition={{ type: 'spring', stiffness: 180, damping: 15 }}
                   >
                     {/* Card container */}
-                    <div 
+                    <div
                       className="w-[56px] h-[84px] rounded-[8px] overflow-hidden bg-white relative shadow-[0_12px_24px_-4px_rgba(0,0,0,0.22),0_4px_8px_rgba(0,0,0,0.15)]"
                     >
-                      <img 
-                        src="/cards/flip/Purple_FLIP.jpg" 
-                        alt="UNO Flip Card" 
-                        className="absolute pointer-events-none select-none" 
-                        style={{ 
-                          width: '102.44%', 
-                          height: '102.38%', 
-                          left: '-1.22%', 
+                      <img
+                        src="/cards/flip/Purple_FLIP.jpg"
+                        alt="UNO Flip Card"
+                        className="absolute pointer-events-none select-none"
+                        style={{
+                          width: '102.44%',
+                          height: '102.38%',
+                          left: '-1.22%',
                           top: '-1.19%',
                           maxWidth: 'none',
                           maxHeight: 'none',
-                        }} 
+                        }}
                       />
                     </div>
                   </motion.div>
@@ -4392,38 +5428,125 @@ function App() {
               </div>
             </motion.div>
 
-            {/* UNO No Mercy Card */}
             <motion.div
-              whileHover={{ y: -4, boxShadow: '6px 6px 0 rgba(15,23,42,0.15)' }}
+              whileHover={{ y: -4, boxShadow: '6px 6px 0 #0f172a' }}
               onMouseMove={(e) => handleShowcaseMouseMove(e, 'mercy')}
               onMouseLeave={() => handleShowcaseMouseLeave('mercy')}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-              className="bg-neutral-bg border-3 border-dashed border-[#0f172a]/20 rounded-[20px] p-5 shadow-[4px_4px_0_rgba(15,23,42,0.05)] flex flex-col justify-between relative group"
+              onClick={() => {
+                setGameMode('mercy');
+                setNameError(false);
+                setView('friends');
+              }}
+              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative group cursor-pointer"
             >
-              <div className="absolute right-6 -top-3.5 bg-brand-red border-2 border-[#0f172a] px-3 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] text-white font-black text-[9px] uppercase tracking-wider select-none">
-                Coming Soon
-              </div>
+              {/* HOT! Flame Badge — with fire animation */}
+              <motion.div
+                className="absolute -top-8 -right-6 w-14 h-16 z-20 flex items-center justify-center pointer-events-none drop-shadow-[2.5px_2.5px_0_#0f172a]"
+                animate={{ y: [0, -2, 1, -1, 0], rotate: [-0.5, 0.5, -0.3, 0.4, -0.5] }}
+                transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <svg viewBox="0 0 100 110" className="w-full h-full" style={{ overflow: 'visible' }}>
+                  <defs>
+                    {/* Outer flame gradient: Deep Red to Flame Orange */}
+                    <linearGradient id="flameOuterGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                      <stop offset="0%" stopColor="#d71809" />
+                      <stop offset="100%" stopColor="#f97316" />
+                    </linearGradient>
+                    {/* Inner flame gradient: Flame Orange to bright Yellow */}
+                    <linearGradient id="flameInnerGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                      <stop offset="0%" stopColor="#f97316" />
+                      <stop offset="100%" stopColor="#ecd407" />
+                    </linearGradient>
+                    {/* Core flame gradient: Yellow to White */}
+                    <linearGradient id="flameCoreGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                      <stop offset="0%" stopColor="#ecd407" />
+                      <stop offset="100%" stopColor="#ffffff" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Outer Flame — flickers scaleY from base */}
+                  <motion.path
+                    d="M 50 100 C 25 100, 10 80, 10 55 C 10 40, 20 30, 30 40 C 35 45, 40 35, 45 15 C 47 8, 53 8, 55 15 C 60 35, 65 45, 70 40 C 80 30, 90 40, 90 55 C 90 80, 75 100, 50 100 Z"
+                    fill="url(#flameOuterGrad)"
+                    stroke="#0f172a"
+                    strokeWidth="6"
+                    strokeLinejoin="round"
+                    animate={{
+                      scaleY: [1, 1.05, 0.97, 1.03, 0.98, 1],
+                      scaleX: [1, 0.98, 1.01, 0.99, 1.01, 1],
+                    }}
+                    transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", times: [0, 0.2, 0.4, 0.6, 0.8, 1] }}
+                    style={{ transformBox: 'fill-box', transformOrigin: 'bottom center' }}
+                  />
+
+                  {/* Middle Flame — shimmers opacity, offset timing */}
+                  <motion.path
+                    d="M 50 88 C 36 88, 26 76, 26 60 C 26 51, 31 44, 38 50 C 41 53, 43 45, 46 31 C 47 25, 53 25, 54 31 C 57 45, 59 53, 62 50 C 69 44, 74 51, 74 60 C 74 76, 64 88, 50 88 Z"
+                    fill="url(#flameInnerGrad)"
+                    animate={{
+                      opacity: [0.88, 1, 0.82, 1, 0.9, 0.88],
+                      scaleY: [1, 1.03, 0.98, 1.02, 0.99, 1],
+                    }}
+                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.2, times: [0, 0.2, 0.45, 0.65, 0.85, 1] }}
+                    style={{ transformBox: 'fill-box', transformOrigin: 'bottom center' }}
+                  />
+
+                  {/* Core Glow — faster pulse, different phase */}
+                  <motion.path
+                    d="M 50 76 C 43 76, 36 69, 36 60 C 36 54, 39 49, 43 54 C 45 56, 46 50, 47 42 C 48 37, 52 37, 53 42 C 54 50, 55 56, 57 54 C 61 49, 64 54, 64 60 C 64 69, 57 76, 50 76 Z"
+                    fill="url(#flameCoreGrad)"
+                    animate={{
+                      opacity: [0.75, 1, 0.78, 1, 0.8, 0.75],
+                      scaleY: [1, 1.07, 0.94, 1.05, 0.97, 1],
+                    }}
+                    transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut", delay: 0.4, times: [0, 0.25, 0.45, 0.65, 0.82, 1] }}
+                    style={{ transformBox: 'fill-box', transformOrigin: 'bottom center' }}
+                  />
+
+                  {/* HOT! Text — static for readability */}
+                  <text
+                    x="50%"
+                    y="65%"
+                    dominantBaseline="middle"
+                    textAnchor="middle"
+                    fill="#0f172a"
+                    stroke="#ffffff"
+                    strokeWidth="4.5"
+                    paintOrder="stroke fill"
+                    fontSize="15"
+                    fontFamily="sans-serif"
+                    fontWeight="900"
+                    letterSpacing="0.5"
+                  >
+                    HOT!
+                  </text>
+                </svg>
+              </motion.div>
               <div className="mt-2">
-                <div 
-                  className="mb-4 flex items-center justify-start select-none" 
+
+
+
+                <div
+                  className="mb-4 flex items-center justify-start select-none"
                   style={{ perspective: '600px' }}
                 >
-                  <motion.div 
-                    className="w-[56px] h-[84px] rounded-[8px] overflow-hidden bg-white relative shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
+                  <motion.div
+                    className="w-[56px] h-[84px] rounded-[8px] overflow-hidden bg-[#000000] relative shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
                     animate={mercyHover}
                     transition={{ type: 'spring', stiffness: 180, damping: 15 }}
                   >
-                    <img 
-                      src="/cards/No_Mercy.png" 
-                      alt="UNO No Mercy Card" 
-                      className="w-full h-full object-contain pointer-events-none" 
+                    <img
+                      src="/cards/mercy/card_back.webp"
+                      alt="UNO No Mercy Card"
+                      className="w-full h-full object-cover pointer-events-none block"
                     />
                   </motion.div>
                 </div>
-                <h3 className="font-black text-xs uppercase text-[#0f172a]/50 tracking-wide mb-1.5">
+                <h3 className="font-black text-xs uppercase text-[#0f172a] tracking-wide mb-1.5">
                   UNO No Mercy
                 </h3>
-                <p className="text-[10px] font-bold text-neutral-muted/50 leading-relaxed">
+                <p className="text-[10px] font-bold text-neutral-muted leading-relaxed">
                   The most brutal UNO edition yet. Stacking draw penalties, tougher Action cards, and instant elimination if you hold 25+ cards.
                 </p>
               </div>

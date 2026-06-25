@@ -118,6 +118,18 @@
   background: #4c1d95;
 }
 
+.btn-3d-edge-orange {
+  background: linear-gradient(to left,
+      #9d4e00 0%,
+      #c86200 8%,
+      #c86200 92%,
+      #9d4e00 100%);
+}
+
+.btn-3d-front-orange {
+  background: #e67e22;
+}
+
 /* Hover and active states transitions */
 .btn-3d:hover .btn-3d-shadow {
   transform: translateY(4px);

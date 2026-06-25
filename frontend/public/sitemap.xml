@@ -1,33 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- Homepage — highest priority; targets UNO No Mercy + Classic + Flip -->
   <url>
     <loc>https://unomultiplayer.me/</loc>
-    <lastmod>2026-06-24</lastmod>
+    <lastmod>2026-06-25</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+
+  <!-- About page -->
   <url>
-    <loc>https://unomultiplayer.me/about</loc>
-    <lastmod>2026-06-24</lastmod>
+    <loc>https://unomultiplayer.me/about.html</loc>
+    <lastmod>2026-06-25</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.6</priority>
   </url>
+
+  <!-- Privacy Policy -->
   <url>
-    <loc>https://unomultiplayer.me/privacy</loc>
-    <lastmod>2026-06-24</lastmod>
+    <loc>https://unomultiplayer.me/privacy.html</loc>
+    <lastmod>2026-06-25</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.4</priority>
   </url>
+
+  <!-- Terms & Conditions -->
   <url>
-    <loc>https://unomultiplayer.me/terms</loc>
-    <lastmod>2026-06-24</lastmod>
+    <loc>https://unomultiplayer.me/terms.html</loc>
+    <lastmod>2026-06-25</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.4</priority>
   </url>
+
+  <!-- Contact -->
   <url>
-    <loc>https://unomultiplayer.me/contact</loc>
-    <lastmod>2026-06-24</lastmod>
+    <loc>https://unomultiplayer.me/contact.html</loc>
+    <lastmod>2026-06-25</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
+
 </urlset>

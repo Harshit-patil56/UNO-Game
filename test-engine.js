@@ -1,5 +1,5 @@
 import { normalizeCard } from './src/game/normalizer.js';
-import { createDeck, shuffleDeck, dealCards, createFlipDeck, getActiveCardFace, FLIP_DECK_MAPPING } from './src/game/deck.js';
+import { createDeck, shuffleDeck, dealCards, createFlipDeck, createMercyDeck, getActiveCardFace, FLIP_DECK_MAPPING } from './src/game/deck.js';
 import { validatePlayable } from './src/game/validator.js';
 import { nextTurn, reverseDirection, skipTurn } from './src/game/turnManager.js';
 import { calculateHandScore, checkWinner } from './src/game/rules.js';
@@ -9,7 +9,9 @@ import {
   passTurn,
   resolveChallenge,
   callUno,
-  catchUno
+  catchUno,
+  checkMercyElimination,
+  resolveSevenSwap
 } from './src/game/engine.js';
 
 let failedTests = 0;
@@ -273,6 +275,213 @@ try {
 
 } catch (e) {
   assert(false, `UNO Flip testing error: ${e.message}\nStack: ${e.stack}`);
+}
+
+// 8. Test UNO Show 'Em No Mercy Game Mechanics
+try {
+  console.log('--- TESTING UNO SHOW EM NO MERCY ---');
+
+  // Verify Mercy deck generation
+  const mercyDeck = createMercyDeck();
+  assert(mercyDeck.length === 168, `Mercy deck has 168 cards (got ${mercyDeck.length})`);
+  
+  // Verify counts of No Mercy specific cards
+  const rouletteCount = mercyDeck.filter(c => c === 'WILD_ROULETTE').length;
+  const drawTenCount = mercyDeck.filter(c => c === 'WILD_DRAW_TEN').length;
+  const skipAllCount = mercyDeck.filter(c => c.endsWith('_SKIP_ALL')).length;
+  const discardAllCount = mercyDeck.filter(c => c.endsWith('_DISCARD_ALL')).length;
+  
+  assert(rouletteCount === 8, `Should contain exactly 8 Wild Roulette cards (got ${rouletteCount})`);
+  assert(drawTenCount === 4, `Should contain exactly 4 Wild Draw Ten cards (got ${drawTenCount})`);
+  assert(skipAllCount === 8, `Should contain exactly 8 Skip All cards (got ${skipAllCount})`);
+  assert(discardAllCount === 12, `Should contain exactly 12 Discard All cards (got ${discardAllCount})`);
+
+  // Test Skip All
+  const gameWithSkipAll = {
+    roomId: 'SKIP_ALL_TEST',
+    hostId: 'P1',
+    gameStarted: true,
+    winner: null,
+    gameMode: 'mercy',
+    players: [
+      { id: 'P1', name: 'Alice', hand: ['RED_SKIP_ALL'], isDisconnected: false },
+      { id: 'P2', name: 'Bob', hand: ['GREEN_NUMBER_2'], isDisconnected: false },
+      { id: 'P3', name: 'Charlie', hand: ['YELLOW_NUMBER_3'], isDisconnected: false }
+    ],
+    deck: [],
+    discardPile: ['RED_NUMBER_0'],
+    currentTurn: 0,
+    direction: 1,
+    currentColor: 'RED',
+    unoStates: {},
+    unoCatchablePlayerId: null,
+    drawnPlayableCard: null,
+    pendingChallenge: null
+  };
+  playCard(gameWithSkipAll, 'P1', 'RED_SKIP_ALL');
+  assert(gameWithSkipAll.currentTurn === 0, 'Skip All action card keeps turn on playing player (P1)');
+
+  // Test Discard All
+  const gameWithDiscardAll = {
+    roomId: 'DISCARD_ALL_TEST',
+    hostId: 'P1',
+    gameStarted: true,
+    winner: null,
+    gameMode: 'mercy',
+    players: [
+      { id: 'P1', name: 'Alice', hand: ['RED_DISCARD_ALL', 'RED_NUMBER_5', 'BLUE_NUMBER_5', 'RED_NUMBER_8'], isDisconnected: false },
+      { id: 'P2', name: 'Bob', hand: ['GREEN_NUMBER_2'], isDisconnected: false }
+    ],
+    deck: [],
+    discardPile: ['RED_NUMBER_0'],
+    currentTurn: 0,
+    direction: 1,
+    currentColor: 'RED',
+    unoStates: {},
+    unoCatchablePlayerId: null,
+    drawnPlayableCard: null,
+    pendingChallenge: null
+  };
+  playCard(gameWithDiscardAll, 'P1', 'RED_DISCARD_ALL');
+  assert(gameWithDiscardAll.players[0].hand.length === 1 && gameWithDiscardAll.players[0].hand[0] === 'BLUE_NUMBER_5', 'Discard All removes all cards matching its color from player hand');
+  assert(gameWithDiscardAll.currentTurn === 1, 'Discard All advances turn to Bob (P2)');
+
+  // Test Stacking
+  const gameWithStacking = {
+    roomId: 'STACKING_TEST',
+    hostId: 'P1',
+    gameStarted: true,
+    winner: null,
+    gameMode: 'mercy',
+    players: [
+      { id: 'P1', name: 'Alice', hand: ['RED_DRAW_TWO', 'BLUE_NUMBER_2'], isDisconnected: false },
+      { id: 'P2', name: 'Bob', hand: ['BLUE_DRAW_FOUR', 'GREEN_NUMBER_2'], isDisconnected: false },
+      { id: 'P3', name: 'Charlie', hand: ['GREEN_NUMBER_2'], isDisconnected: false }
+    ],
+    deck: ['YELLOW_NUMBER_1', 'YELLOW_NUMBER_2', 'YELLOW_NUMBER_3', 'YELLOW_NUMBER_4', 'YELLOW_NUMBER_5', 'YELLOW_NUMBER_6'],
+    discardPile: ['RED_NUMBER_0'],
+    currentTurn: 0,
+    direction: 1,
+    currentColor: 'RED',
+    drawStack: null,
+    unoStates: {},
+    unoCatchablePlayerId: null,
+    drawnPlayableCard: null,
+    pendingChallenge: null
+  };
+  playCard(gameWithStacking, 'P1', 'RED_DRAW_TWO');
+  assert(gameWithStacking.drawStack && gameWithStacking.drawStack.count === 2, 'Playing +2 adds 2 to active draw stack');
+  assert(gameWithStacking.currentTurn === 1, 'Turn passes to Bob (P2) without forcing P2 to draw immediately');
+
+  playCard(gameWithStacking, 'P2', 'BLUE_DRAW_FOUR', 'BLUE');
+  assert(gameWithStacking.drawStack && gameWithStacking.drawStack.count === 6, 'Stacking +4 on +2 increases draw stack count to 6');
+  assert(gameWithStacking.currentTurn === 2, 'Turn passes to Charlie (P3) under the +6 stack penalty');
+
+  drawCard(gameWithStacking, 'P3');
+  assert(gameWithStacking.players[2].hand.length === 7, 'Charlie cannot stack, so he draws the full 6 stack penalty');
+  assert(gameWithStacking.drawStack && gameWithStacking.drawStack.count === 0, 'Draw stack count is reset to 0 after penalty is drawn');
+  assert(gameWithStacking.currentTurn === 0, 'Charlie is skipped after drawing, turn moves back to Alice (P1)');
+
+  // Test 7s Swap
+  const gameWithSevenSwap = {
+    roomId: 'SEVEN_SWAP_TEST',
+    hostId: 'P1',
+    gameStarted: true,
+    winner: null,
+    gameMode: 'mercy',
+    players: [
+      { id: 'P1', name: 'Alice', hand: ['RED_NUMBER_7', 'BLUE_NUMBER_2'], isDisconnected: false },
+      { id: 'P2', name: 'Bob', hand: ['GREEN_NUMBER_2'], isDisconnected: false },
+      { id: 'P3', name: 'Charlie', hand: ['YELLOW_NUMBER_3'], isDisconnected: false }
+    ],
+    deck: [],
+    discardPile: ['RED_NUMBER_0'],
+    currentTurn: 0,
+    direction: 1,
+    currentColor: 'RED',
+    unoStates: {},
+    unoCatchablePlayerId: null,
+    drawnPlayableCard: null,
+    pendingChallenge: null,
+    pendingSevenSwap: null
+  };
+  playCard(gameWithSevenSwap, 'P1', 'RED_NUMBER_7');
+  assert(gameWithSevenSwap.pendingSevenSwap && gameWithSevenSwap.pendingSevenSwap.playedBy === 'P1', 'Playing a 7 triggers a pending swap state');
+  assert(gameWithSevenSwap.currentTurn === 0, 'Turn stays with Alice (P1) until the 7 swap is resolved');
+
+  resolveSevenSwap(gameWithSevenSwap, 'P1', 'P3');
+  assert(gameWithSevenSwap.players[0].hand.length === 1 && gameWithSevenSwap.players[0].hand[0] === 'YELLOW_NUMBER_3', 'P1 hand swapped with P3 hand');
+  assert(gameWithSevenSwap.players[2].hand.length === 1 && gameWithSevenSwap.players[2].hand[0] === 'BLUE_NUMBER_2', 'P3 hand swapped with P1 hand (minus the played 7)');
+  assert(gameWithSevenSwap.pendingSevenSwap === null, 'Pending swap state is cleared');
+  assert(gameWithSevenSwap.currentTurn === 1, 'Turn advances to Bob (P2) after 7 swap resolution');
+
+  // Test Mercy Elimination (25 cards)
+  const gameWithMercyKO = {
+    roomId: 'MERCY_KO_TEST',
+    hostId: 'P1',
+    gameStarted: true,
+    winner: null,
+    gameMode: 'mercy',
+    players: [
+      { id: 'P1', name: 'Alice', hand: Array(24).fill('BLUE_NUMBER_1'), isDisconnected: false },
+      { id: 'P2', name: 'Bob', hand: ['GREEN_NUMBER_2'], isDisconnected: false }
+    ],
+    deck: ['YELLOW_NUMBER_1', 'YELLOW_NUMBER_2'],
+    discardPile: ['BLUE_NUMBER_0'],
+    currentTurn: 0,
+    direction: 1,
+    currentColor: 'BLUE',
+    drawStack: null,
+    unoStates: {},
+    unoCatchablePlayerId: null,
+    drawnPlayableCard: null,
+    pendingChallenge: null,
+    eliminatedPlayers: []
+  };
+  drawCard(gameWithMercyKO, 'P1');
+  assert(gameWithMercyKO.players[0].hand.length === 25, 'Alice hand size increased to 25');
+  checkMercyElimination(gameWithMercyKO);
+  assert(gameWithMercyKO.eliminatedPlayers.includes('P1'), 'Alice is eliminated by the Mercy Rule');
+  assert(gameWithMercyKO.winner === 'P2', 'Bob is declared the winner since only one active player remains');
+
+  // Test Wild Roulette
+  const gameWithRoulette = {
+    roomId: 'ROULETTE_TEST',
+    hostId: 'P1',
+    gameStarted: true,
+    winner: null,
+    gameMode: 'mercy',
+    players: [
+      { id: 'P1', name: 'Alice', hand: ['WILD_ROULETTE', 'BLUE_NUMBER_2'], isDisconnected: false },
+      { id: 'P2', name: 'Bob', hand: ['GREEN_NUMBER_2'], isDisconnected: false }
+    ],
+    deck: ['RED_NUMBER_7', 'WILD', 'YELLOW_NUMBER_1', 'YELLOW_NUMBER_2'],
+    discardPile: ['BLUE_NUMBER_0'],
+    currentTurn: 0,
+    direction: 1,
+    currentColor: 'BLUE',
+    drawStack: null,
+    unoStates: {},
+    unoCatchablePlayerId: null,
+    drawnPlayableCard: null,
+    pendingChallenge: null,
+    eliminatedPlayers: []
+  };
+
+  playCard(gameWithRoulette, 'P1', 'WILD_ROULETTE', 'RED');
+  assert(gameWithRoulette.pendingChallenge && gameWithRoulette.pendingChallenge.type === 'WILD_ROULETTE', 'Playing WILD_ROULETTE sets a pending challenge of type WILD_ROULETTE');
+  assert(gameWithRoulette.currentColor === 'RED', 'Current color is updated to RED');
+  assert(gameWithRoulette.currentTurn === 1, 'Turn moves to P2 (Bob) to resolve the roulette');
+
+  const outcome = resolveChallenge(gameWithRoulette, 'P2', false);
+  assert(outcome.accepted === true, 'Challenge is accepted by Bob');
+  assert(outcome.cardsDrawn === 4, `Bob should draw 4 cards until RED is found, skipping WILD (got ${outcome.cardsDrawn})`);
+  assert(gameWithRoulette.players[1].hand.length === 5, `Bob should end up with 5 cards (1 original + 4 drawn)`);
+  assert(gameWithRoulette.pendingChallenge === null, 'Pending challenge is cleared after resolution');
+  assert(gameWithRoulette.currentTurn === 0, 'Turn moves back to P1 (Alice) after Bob is skipped');
+
+} catch (e) {
+  assert(false, `UNO Show Em No Mercy testing error: ${e.message}\nStack: ${e.stack}`);
 }
 
 console.log('--- TEST SUITE COMPLETE ---');

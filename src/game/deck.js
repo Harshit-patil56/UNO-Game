@@ -42,6 +42,47 @@ export function createDeck() {
 }
 
 /**
+ * Generates the official 168-card UNO Show 'Em No Mercy deck.
+ * Composition:
+ *   - 80 number cards: 2x each of 0-9 per color (4 colors)
+ *   - 60 color action cards per color: 3x Skip, 3x Reverse, 3x Draw Two (+2),
+ *     2x Skip All, 3x Discard All, 2x Draw Four (+4)
+ *   - 24 wild cards: 8x Wild, 4x Wild Draw Six (+6), 4x Wild Draw Ten (+10),
+ *     8x Wild Roulette
+ * Total: 164 cards (close enough - adjusting to exact 168 per official rules)
+ * 
+ * @returns {string[]}
+ */
+export function createMercyDeck() {
+  const deck = [];
+  const colors = ['RED', 'BLUE', 'GREEN', 'YELLOW'];
+
+  for (const color of colors) {
+    // 2x Numbers 0-9 (20 per color, 80 total)
+    for (let i = 0; i <= 9; i++) {
+      deck.push(`${color}_NUMBER_${i}`);
+      deck.push(`${color}_NUMBER_${i}`);
+    }
+
+    // 3x Skip, 3x Reverse, 3x Draw Two, 2x Skip All, 3x Discard All, 2x Draw Four
+    for (let i = 0; i < 3; i++) deck.push(`${color}_SKIP`);
+    for (let i = 0; i < 3; i++) deck.push(`${color}_REVERSE`);
+    for (let i = 0; i < 3; i++) deck.push(`${color}_DRAW_TWO`);
+    for (let i = 0; i < 2; i++) deck.push(`${color}_SKIP_ALL`);
+    for (let i = 0; i < 3; i++) deck.push(`${color}_DISCARD_ALL`);
+    for (let i = 0; i < 2; i++) deck.push(`${color}_DRAW_FOUR`);
+  }
+
+  // Wild cards (24 total): 8x Wild, 4x Wild Draw Six, 4x Wild Draw Ten, 8x Wild Roulette
+  for (let i = 0; i < 8; i++) deck.push('WILD');
+  for (let i = 0; i < 4; i++) deck.push('WILD_DRAW_SIX');
+  for (let i = 0; i < 4; i++) deck.push('WILD_DRAW_TEN');
+  for (let i = 0; i < 8; i++) deck.push('WILD_ROULETTE');
+
+  return deck;
+}
+
+/**
  * Shuffles a deck array using the Fisher-Yates algorithm. Returns a new array.
  * 
  * @param {string[]} deck 
@@ -153,7 +194,7 @@ export function createFlipDeck() {
  * @returns {string}
  */
 export function getActiveCardFace(cardId, side = 'light', gameMode = 'classic') {
-  if (gameMode === 'classic') {
+  if (gameMode === 'classic' || gameMode === 'mercy') {
     return cardId;
   }
   if (!cardId || !cardId.startsWith('FLIP_CARD_')) {

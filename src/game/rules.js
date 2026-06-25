@@ -35,6 +35,20 @@ export function calculateHandScore(hand, side = 'light', gameMode = 'classic') {
     const card = normalizeCard(activeFace);
     if (card.type === 'NUMBER') {
       score += card.value;
+    } else if (gameMode === 'mercy') {
+      if (card.type === 'SKIP' || card.type === 'REVERSE' || card.type === 'DRAW_TWO') {
+        score += 20;
+      } else if (card.type === 'SKIP_ALL' || card.type === 'DRAW_FOUR') {
+        score += 30;
+      } else if (card.type === 'DISCARD_ALL') {
+        score += 40;
+      } else if (card.type === 'WILD') {
+        score += 40;
+      } else if (card.type === 'WILD_DRAW_SIX' || card.type === 'WILD_ROULETTE') {
+        score += 50;
+      } else if (card.type === 'WILD_DRAW_TEN') {
+        score += 60;
+      }
     } else if (gameMode === 'flip') {
       if (card.type === 'DRAW_ONE') {
         score += 10;

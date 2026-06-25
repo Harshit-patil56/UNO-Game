@@ -1,6 +1,6 @@
 import { getActiveCardFace } from './deck.js';
 import { normalizeCard } from './normalizer.js';
-import { validatePlayable } from './validator.js';
+import { validatePlayable, getDrawPenaltyValue } from './validator.js';
 
 /**
  * Determines the best color for a bot to choose when playing a Wild card.
@@ -46,19 +46,31 @@ function chooseBestColor(hand, side, gameMode) {
  * Bot action decision.
  * Strategy:
  *   1. If there is a pending challenge targeted at this bot, accept it (draw the penalty).
- *   2. Prefer colored playable cards (non-wild) first — sorted by action cards first (to pressure opponents), then numbers.
- *   3. If only wild cards are playable, play a wild last.
- *   4. If no card is playable, return draw action.
- *   5. If a drawn card is playable (drawnPlayableCard set), play it.
+ *   2. In mercy mode with a pending seven swap, choose the opponent with fewest cards.
+ *   3. In mercy mode with an active draw stack, prioritize playing a stacking draw card;
+ *      if none available, draw the entire stack.
+ *   4. Prefer colored playable cards (non-wild) first — sorted by action cards first (to pressure opponents), then numbers.
+ *   5. If only wild cards are playable, play a wild last.
+ *   6. If no card is playable, return draw action.
+ *   7. If a drawn card is playable (drawnPlayableCard set), play it.
  *
  * @param {Object} room - The full room/game state.
  * @param {string} botId - The bot player's ID.
- * @returns {{ action: 'play'|'draw'|'pass'|'accept_challenge', cardId?: string, chosenColor?: string }}
+ * @returns {{ action: 'play'|'draw'|'pass'|'accept_challenge'|'seven_swap', cardId?: string, chosenColor?: string, targetPlayerId?: string }}
  */
 export function chooseBotAction(room, botId) {
   // Handle pending challenge: bot always accepts (no bluffing logic for simplicity)
   if (room.pendingChallenge && room.pendingChallenge.targetPlayerId === botId) {
     return { action: 'accept_challenge' };
+  }
+
+  // Handle pending seven swap (mercy mode): swap with the player holding fewest cards
+  if (room.pendingSevenSwap && room.pendingSevenSwap.playedBy === botId) {
+    const candidates = room.players.filter(p => p.id !== botId && !(room.eliminatedPlayers || []).includes(p.id));
+    if (candidates.length > 0) {
+      const target = candidates.reduce((a, b) => a.hand.length < b.hand.length ? a : b);
+      return { action: 'seven_swap', targetPlayerId: target.id };
+    }
   }
 
   const bot = room.players.find(p => p.id === botId);
@@ -71,8 +83,44 @@ export function chooseBotAction(room, botId) {
   const side = room.side || 'light';
   const gameMode = room.gameMode || 'classic';
   const currentColor = room.currentColor;
+  const drawStack = gameMode === 'mercy' ? (room.drawStack || null) : null;
 
   const topFace = getActiveCardFace(topCardId, side, gameMode);
+
+  // In mercy mode with an active stack: ONLY stackable draw cards are valid to play
+  if (drawStack && drawStack.count > 0) {
+    // Find a card that can stack
+    const stackable = hand.filter(cardId => {
+      try {
+        const face = getActiveCardFace(cardId, side, gameMode);
+        const norm = normalizeCard(face);
+        const val = getDrawPenaltyValue(norm.type);
+        return val >= drawStack.minValue && val > 0;
+      } catch (_) { return false; }
+    });
+
+    if (stackable.length > 0) {
+      // Play the stackable card with highest draw value (most aggressive)
+      stackable.sort((a, b) => {
+        const faceA = getActiveCardFace(a, side, gameMode);
+        const faceB = getActiveCardFace(b, side, gameMode);
+        const normA = normalizeCard(faceA);
+        const normB = normalizeCard(faceB);
+        return getDrawPenaltyValue(normB.type) - getDrawPenaltyValue(normA.type);
+      });
+      const cardToPlay = stackable[0];
+      const face = getActiveCardFace(cardToPlay, side, gameMode);
+      const norm = normalizeCard(face);
+      let chosenColor = undefined;
+      if (norm.color === 'WILD') {
+        chosenColor = chooseBestColor(hand, side, gameMode);
+      }
+      return { action: 'play', cardId: cardToPlay, chosenColor };
+    }
+
+    // No stackable card, must draw the stack
+    return { action: 'draw' };
+  }
 
   // If the bot has a drawn playable card, play it
   if (room.drawnPlayableCard) {
@@ -102,7 +150,7 @@ export function chooseBotAction(room, botId) {
       continue;
     }
 
-    const isPlayable = validatePlayable(face, topFace, currentColor);
+    const isPlayable = validatePlayable(face, topFace, currentColor, drawStack);
     if (!isPlayable) continue;
 
     try {
