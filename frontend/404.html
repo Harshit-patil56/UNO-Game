@@ -2,6 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Disable Devtool in Production -->
+    <script>
+      (function() {
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '[::1]') {
+          var script = document.createElement('script');
+          script.setAttribute('disable-devtool-auto', '');
+          script.src = 'https://cdn.jsdelivr.net/npm/disable-devtool@0.3.9';
+          script.setAttribute('md5', '1aabac6d068eef6a7bad3fdf50a05cc8');
+          script.setAttribute('tk-name', 'ddtk');
+          document.head.appendChild(script);
+        }
+      })();
+    </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-0WEBRN8YMC"></script>
     <script>
