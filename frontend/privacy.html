@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -17,22 +17,36 @@
     <link rel="stylesheet" href="/src/index.css" />
   </head>
   <body class="min-h-[100dvh] bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col items-center justify-center py-12 px-4 select-text">
-    <div class="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-col items-start gap-1.5 beta-pill-container">
-      <div class="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
-        Beta 1.3
+    <!-- Pills row -->
+    <div class="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-row items-start gap-2">
+      <!-- Beta 1.4 Pill -->
+      <div class="relative" id="beta-pill-container">
+        <div class="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
+          Beta 1.4
+        </div>
+        <div id="beta-pill-tooltip" class="hidden absolute top-full left-0 mt-1.5 bg-white text-[#0f172a] border-2 border-[#0f172a] px-4 py-3 rounded-[10px] shadow-[4px_4px_0_#0f172a] w-[240px] text-left z-50">
+          <p class="text-[10px] font-bold leading-relaxed">
+            &#x1F6A7; The game is in beta. Some features might not work yet &mdash; they will come soon. There may be bugs and glitches, so please bear with me!
+          </p>
+        </div>
       </div>
-      <div class="hidden beta-pill-tooltip bg-white text-[#0f172a] border-2 border-[#0f172a] p-3 rounded-[8px] shadow-[3px_3px_0_#0f172a] max-w-[220px] text-left">
-        <p class="text-[10px] font-bold leading-normal">
-          The game is in beta. Some features might not work; they will come soon. There may be some bugs and glitches, so please bear with me!
-        </p>
+      <!-- Disclaimer Pill -->
+      <div class="relative" id="disclaimer-pill-container">
+        <div class="bg-[#ea580c] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]" style="cursor:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23ea580c' d='M12 2L1 21h22L12 2z'/%3E%3Cpath stroke='white' stroke-width='2.2' stroke-linecap='round' d='M12 9v5M12 16.5v1'/%3E%3C/svg%3E&quot;) 10 5,auto">
+          &#x2696;&#xFE0F; Disclaimer
+        </div>
+        <div id="disclaimer-pill-tooltip" class="hidden absolute top-full left-0 mt-1.5 bg-white text-[#0f172a] border-2 border-[#0f172a] px-4 py-3 rounded-[10px] shadow-[4px_4px_0_#0f172a] w-[280px] text-left z-50" style="cursor:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23ea580c' d='M12 2L1 21h22L12 2z'/%3E%3Cpath stroke='white' stroke-width='2.2' stroke-linecap='round' d='M12 9v5M12 16.5v1'/%3E%3C/svg%3E&quot;) 10 5,auto">
+          <p class="text-[9px] font-black uppercase tracking-wider text-[#ea580c] mb-2">&#x2696;&#xFE0F; Disclaimer</p>
+          <p class="text-[10px] font-medium leading-relaxed text-[#334155]">
+            UNO&reg; and all related trademarks, card designs, and assets are the property of <strong>Mattel, Inc.</strong> This is a personal, non-commercial fan project &mdash; built just to play with friends and help others enjoy the game online. No profit is made from this site. I do not claim ownership of any UNO&reg; intellectual property. All assets were sourced from publicly available resources on the web.
+          </p>
+        </div>
       </div>
     </div>
     <div class="max-w-xl w-full text-center flex flex-col items-center my-auto">
       <div class="relative bg-white border-3 border-[#0f172a] rounded-[20px] pt-12 pb-6 px-6 sm:px-8 shadow-[8px_8px_0_#0f172a] w-full text-left flex flex-col gap-6">
         <div class="absolute left-6 -top-5.5 bg-[#0956bf] border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a]">
-          <h1 class="text-white font-black text-xs tracking-wider uppercase select-none">
-            Privacy Policy
-          </h1>
+          <h1 class="text-white font-black text-xs tracking-wider uppercase select-none">Privacy Policy</h1>
         </div>
         <a href="/" title="Back to Main Menu" class="absolute right-6 -top-5.5 bg-white hover:bg-[#0956bf] hover:text-white text-[#0f172a] border-2 border-[#0f172a] px-3.5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a] transition-all duration-180 ease-in-out cursor-pointer flex items-center gap-1.5 no-underline">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
@@ -42,27 +56,31 @@
           <div class="relative bg-[#cc3333] border-2 border-[#0f172a] px-3.5 py-1.5 rounded-[6px] shadow-[1.5px_1.5px_0_#0f172a] inline-block mb-3 transform rotate-1">
             <span class="text-white font-black text-xs uppercase tracking-wider">No Personal Data Collected</span>
           </div>
-          <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed">
-            I value your privacy. UNO With Friends does not require user accounts, email registration, phone numbers, or passwords. Your selected display name is stored strictly in the temporary server memory for the duration of your active game session, and is deleted immediately when you disconnect from the room.
-          </p>
+          <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed">I value your privacy. UNO With Friends does not require user accounts, email registration, phone numbers, or passwords. Your selected display name is stored strictly in the temporary server memory for the duration of your active game session, and is deleted immediately when you disconnect from the room.</p>
         </div>
         <div>
           <div class="relative bg-[#379711] border-2 border-[#0f172a] px-3.5 py-1.5 rounded-[6px] shadow-[1.5px_1.5px_0_#0f172a] inline-block mb-3 transform -rotate-1">
             <span class="text-white font-black text-xs uppercase tracking-wider">Local Storage Usage</span>
           </div>
-          <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed">
-            I utilize standard browser Local Storage strictly to remember your preferences between visits. This includes saving your last entered player name, your avatar selection seed, and your sound preference (mute/unmute). This information stays on your device and is never uploaded or shared.
-          </p>
+          <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed">I utilize standard browser Local Storage strictly to remember your preferences between visits. This includes saving your last entered player name, your avatar selection seed, and your sound preference (mute/unmute). This information stays on your device and is never uploaded or shared.</p>
         </div>
         <div>
           <div class="relative bg-[#ecd407] border-2 border-[#0f172a] px-3.5 py-1.5 rounded-[6px] shadow-[1.5px_1.5px_0_#0f172a] inline-block mb-3 transform rotate-1">
             <span class="text-[#0f172a] font-black text-xs uppercase tracking-wider">No Cookies or Advertising</span>
           </div>
-          <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed">
-            UNO With Friends contains zero tracking cookies, marketing scripts, or third-party ads. I do not track your browsing history or sell user details to advertisers. The site is built solely for clean, ad-free multiplayer card gaming.
-          </p>
+          <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed">UNO With Friends contains zero tracking cookies, marketing scripts, or third-party ads. I do not track your browsing history or sell user details to advertisers. The site is built solely for clean, ad-free multiplayer card gaming.</p>
         </div>
       </div>
     </div>
+    <script>
+      var betaEl = document.getElementById('beta-pill-container');
+      var betaTip = document.getElementById('beta-pill-tooltip');
+      betaEl.addEventListener('mouseenter', function() { betaTip.classList.remove('hidden'); });
+      betaEl.addEventListener('mouseleave', function() { betaTip.classList.add('hidden'); });
+      var discEl = document.getElementById('disclaimer-pill-container');
+      var discTip = document.getElementById('disclaimer-pill-tooltip');
+      discEl.addEventListener('mouseenter', function() { discTip.classList.remove('hidden'); });
+      discEl.addEventListener('mouseleave', function() { discTip.classList.add('hidden'); });
+    </script>
   </body>
 </html>

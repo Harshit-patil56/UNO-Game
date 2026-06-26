@@ -290,6 +290,10 @@ export function scheduleBotTurn(io, roomId) {
         try {
           const outcome = resolveSevenSwap(currentRoom, activePlayer.id, decision.targetPlayerId);
           currentRoom.turnStartedAt = Date.now();
+          io.to(roomId).emit('seven_swapped', {
+            playedBy: activePlayer.id,
+            targetPlayerId: decision.targetPlayerId
+          });
           if (outcome.winner) {
             currentRoom.winner = outcome.winner;
           }
@@ -942,6 +946,11 @@ export function registerSocketHandlers(io, socket) {
 
       const outcome = resolveSevenSwap(room, session.playerId, targetPlayerId);
       room.turnStartedAt = Date.now();
+
+      io.to(room.roomId).emit('seven_swapped', {
+        playedBy: session.playerId,
+        targetPlayerId
+      });
 
       if (outcome.winner) {
         clearRoomTurnTimer(room.roomId);

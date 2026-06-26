@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -17,30 +17,42 @@
     <link rel="stylesheet" href="/src/index.css" />
   </head>
   <body class="min-h-[100dvh] bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col items-center justify-center py-12 px-4 select-text">
-    <div class="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-col items-start gap-1.5 beta-pill-container">
-      <div class="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
-        Beta 1.3
+    <!-- Pills row -->
+    <div class="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-row items-start gap-2">
+      <!-- Beta 1.4 Pill -->
+      <div class="relative" id="beta-pill-container">
+        <div class="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
+          Beta 1.4
+        </div>
+        <div id="beta-pill-tooltip" class="hidden absolute top-full left-0 mt-1.5 bg-white text-[#0f172a] border-2 border-[#0f172a] px-4 py-3 rounded-[10px] shadow-[4px_4px_0_#0f172a] w-[240px] text-left z-50">
+          <p class="text-[10px] font-bold leading-relaxed">
+            &#x1F6A7; The game is in beta. Some features might not work yet &mdash; they will come soon. There may be bugs and glitches, so please bear with me!
+          </p>
+        </div>
       </div>
-      <div class="hidden beta-pill-tooltip bg-white text-[#0f172a] border-2 border-[#0f172a] p-3 rounded-[8px] shadow-[3px_3px_0_#0f172a] max-w-[220px] text-left">
-        <p class="text-[10px] font-bold leading-normal">
-          The game is in beta. Some features might not work; they will come soon. There may be some bugs and glitches, so please bear with me!
-        </p>
+      <!-- Disclaimer Pill -->
+      <div class="relative" id="disclaimer-pill-container">
+        <div class="bg-[#ea580c] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]" style="cursor:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23ea580c' d='M12 2L1 21h22L12 2z'/%3E%3Cpath stroke='white' stroke-width='2.2' stroke-linecap='round' d='M12 9v5M12 16.5v1'/%3E%3C/svg%3E&quot;) 10 5,auto">
+          &#x2696;&#xFE0F; Disclaimer
+        </div>
+        <div id="disclaimer-pill-tooltip" class="hidden absolute top-full left-0 mt-1.5 bg-white text-[#0f172a] border-2 border-[#0f172a] px-4 py-3 rounded-[10px] shadow-[4px_4px_0_#0f172a] w-[280px] text-left z-50" style="cursor:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23ea580c' d='M12 2L1 21h22L12 2z'/%3E%3Cpath stroke='white' stroke-width='2.2' stroke-linecap='round' d='M12 9v5M12 16.5v1'/%3E%3C/svg%3E&quot;) 10 5,auto">
+          <p class="text-[9px] font-black uppercase tracking-wider text-[#ea580c] mb-2">&#x2696;&#xFE0F; Disclaimer</p>
+          <p class="text-[10px] font-medium leading-relaxed text-[#334155]">
+            UNO&reg; and all related trademarks, card designs, and assets are the property of <strong>Mattel, Inc.</strong> This is a personal, non-commercial fan project &mdash; built just to play with friends and help others enjoy the game online. No profit is made from this site. I do not claim ownership of any UNO&reg; intellectual property. All assets were sourced from publicly available resources on the web.
+          </p>
+        </div>
       </div>
     </div>
     <div class="max-w-xl w-full text-center flex flex-col items-center my-auto">
       <div class="relative bg-white border-3 border-[#0f172a] rounded-[20px] pt-12 pb-6 px-6 sm:px-8 shadow-[8px_8px_0_#0f172a] w-full text-left">
         <div class="absolute left-6 -top-5.5 bg-[#ecd407] border-2 border-[#0f172a] px-5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a]">
-          <h1 class="text-[#0f172a] font-black text-xs tracking-wider uppercase select-none">
-            Contact Us
-          </h1>
+          <h1 class="text-[#0f172a] font-black text-xs tracking-wider uppercase select-none">Contact Us</h1>
         </div>
         <a href="/" title="Back to Main Menu" class="absolute right-6 -top-5.5 bg-white hover:bg-[#ecd407] hover:text-[#0f172a] text-[#0f172a] border-2 border-[#0f172a] px-3.5 py-2.5 rounded-[8px] shadow-[2px_2px_0_#0f172a] transition-all duration-180 ease-in-out cursor-pointer flex items-center gap-1.5 no-underline">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
           <span class="font-bold text-xs tracking-wider uppercase select-none">Back</span>
         </a>
-        <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed mb-6 mt-4">
-          Have feedback, found a bug, or want to contribute? Send me a message using the form below!
-        </p>
+        <p class="text-xs sm:text-sm font-bold text-neutral-muted leading-relaxed mb-6 mt-4">Have feedback, found a bug, or want to contribute? Send me a message using the form below!</p>
         <form id="contactForm" class="space-y-6" novalidate>
           <div id="nameContainer" class="relative w-full brutalist-container" style="margin-top: 36px; margin-bottom: 12px;">
             <input id="nameInput" placeholder="ENTER YOUR NAME" class="brutalist-input w-full" style="--input-shadow-color: #0956bf;" required />
@@ -57,33 +69,22 @@
           <button type="submit" class="btn-3d w-full mt-4">
             <span class="btn-3d-shadow"></span>
             <span class="btn-3d-edge btn-3d-edge-green"></span>
-            <div class="btn-3d-front btn-3d-front-green flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-12">
-              Send Message
-            </div>
+            <div class="btn-3d-front btn-3d-front-green flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-12">Send Message</div>
           </button>
         </form>
       </div>
     </div>
-    <!-- Custom Brutalist Modal Container -->
+    <!-- Brutalist Modal -->
     <div id="brutalistModal" class="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm hidden">
       <div class="relative bg-white border-3 border-[#0f172a] rounded-[24px] p-6 sm:p-8 shadow-[8px_8px_0_#0f172a] flex flex-col items-center max-w-sm w-full select-none transform transition-transform scale-95 duration-200">
-        <!-- Title Header Pill -->
         <div id="modalTitlePill" class="absolute left-6 -top-5.5 bg-[#0956bf] border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a]">
-          <h3 id="modalTitle" class="text-white font-black text-xs tracking-wider uppercase m-0 select-none">
-            Notification
-          </h3>
+          <h3 id="modalTitle" class="text-white font-black text-xs tracking-wider uppercase m-0 select-none">Notification</h3>
         </div>
-        <!-- Modal Message -->
-        <p id="modalMessage" class="text-xs sm:text-sm font-bold text-neutral-muted text-center mt-4 mb-6 leading-relaxed">
-          Message contents here
-        </p>
-        <!-- Modal Action Button -->
+        <p id="modalMessage" class="text-xs sm:text-sm font-bold text-neutral-muted text-center mt-4 mb-6 leading-relaxed">Message contents here</p>
         <button id="modalCloseBtn" class="btn-3d w-full">
           <span class="btn-3d-shadow"></span>
           <span class="btn-3d-edge btn-3d-edge-blue"></span>
-          <div class="btn-3d-front btn-3d-front-blue flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-10">
-            OK
-          </div>
+          <div class="btn-3d-front btn-3d-front-blue flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-10">OK</div>
         </button>
       </div>
     </div>
@@ -98,8 +99,6 @@
       const messageInput = document.getElementById('messageInput');
       const messageContainer = document.getElementById('messageContainer');
       const messageLabel = document.getElementById('messageLabel');
-
-      // Modal Elements
       const modal = document.getElementById('brutalistModal');
       const modalTitlePill = document.getElementById('modalTitlePill');
       const modalTitle = document.getElementById('modalTitle');
@@ -113,7 +112,6 @@
         modalTitle.textContent = title;
         modalMessage.textContent = message;
         modalCallback = callback;
-
         if (type === 'error') {
           modalTitlePill.className = 'absolute left-6 -top-5.5 bg-[#cc3333] border-2 border-[#0f172a] px-5 py-2 rounded-[8px] shadow-[2px_2px_0_#0f172a]';
           modalCloseBtnEdge.className = 'btn-3d-edge btn-3d-edge-red';
@@ -127,23 +125,14 @@
           modalCloseBtnEdge.className = 'btn-3d-edge btn-3d-edge-blue';
           modalCloseBtnFront.className = 'btn-3d-front btn-3d-front-blue flex items-center justify-center font-black uppercase tracking-wider text-xs text-white h-10';
         }
-
         modal.classList.remove('hidden');
-        setTimeout(() => {
-          modal.firstElementChild.classList.remove('scale-95');
-          modal.firstElementChild.classList.add('scale-100');
-        }, 10);
+        setTimeout(() => { modal.firstElementChild.classList.remove('scale-95'); modal.firstElementChild.classList.add('scale-100'); }, 10);
       };
 
       modalCloseBtn.addEventListener('click', () => {
         modal.firstElementChild.classList.remove('scale-100');
         modal.firstElementChild.classList.add('scale-95');
-        setTimeout(() => {
-          modal.classList.add('hidden');
-          if (modalCallback) {
-            modalCallback();
-          }
-        }, 150);
+        setTimeout(() => { modal.classList.add('hidden'); if (modalCallback) { modalCallback(); } }, 150);
       });
 
       const clearError = (input, container, label, originalLabelText, originalLabelBg) => {
@@ -159,9 +148,7 @@
 
       const getBackendUrl = () => {
         let url = '';
-        try {
-          url = localStorage.getItem('uno_backend_url') || '';
-        } catch (_) {}
+        try { url = localStorage.getItem('uno_backend_url') || ''; } catch (_) {}
         if (!url) {
           if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             url = 'http://localhost:5000';
@@ -177,39 +164,23 @@
         let hasError = false;
         if (!nameInput.value.trim()) {
           nameInput.classList.add('brutalist-input-error');
-          nameContainer.classList.remove('animate-brutal-shake');
-          void nameContainer.offsetWidth;
-          nameContainer.classList.add('animate-brutal-shake');
-          nameLabel.textContent = 'Name is Required!';
-          nameLabel.className = 'brutalist-label bg-[#cc3333]';
-          hasError = true;
+          nameContainer.classList.remove('animate-brutal-shake'); void nameContainer.offsetWidth; nameContainer.classList.add('animate-brutal-shake');
+          nameLabel.textContent = 'Name is Required!'; nameLabel.className = 'brutalist-label bg-[#cc3333]'; hasError = true;
         }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailInput.value.trim()) {
           emailInput.classList.add('brutalist-input-error');
-          emailContainer.classList.remove('animate-brutal-shake');
-          void emailContainer.offsetWidth;
-          emailContainer.classList.add('animate-brutal-shake');
-          emailLabel.textContent = 'Email is Required!';
-          emailLabel.className = 'brutalist-label bg-[#cc3333]';
-          hasError = true;
+          emailContainer.classList.remove('animate-brutal-shake'); void emailContainer.offsetWidth; emailContainer.classList.add('animate-brutal-shake');
+          emailLabel.textContent = 'Email is Required!'; emailLabel.className = 'brutalist-label bg-[#cc3333]'; hasError = true;
         } else if (!emailRegex.test(emailInput.value.trim())) {
           emailInput.classList.add('brutalist-input-error');
-          emailContainer.classList.remove('animate-brutal-shake');
-          void emailContainer.offsetWidth;
-          emailContainer.classList.add('animate-brutal-shake');
-          emailLabel.textContent = 'Invalid Email Address!';
-          emailLabel.className = 'brutalist-label bg-[#cc3333]';
-          hasError = true;
+          emailContainer.classList.remove('animate-brutal-shake'); void emailContainer.offsetWidth; emailContainer.classList.add('animate-brutal-shake');
+          emailLabel.textContent = 'Invalid Email Address!'; emailLabel.className = 'brutalist-label bg-[#cc3333]'; hasError = true;
         }
         if (!messageInput.value.trim()) {
           messageInput.classList.add('brutalist-input-error');
-          messageContainer.classList.remove('animate-brutal-shake');
-          void messageContainer.offsetWidth;
-          messageContainer.classList.add('animate-brutal-shake');
-          messageLabel.textContent = 'Message is Required!';
-          messageLabel.className = 'brutalist-label bg-[#cc3333]';
-          hasError = true;
+          messageContainer.classList.remove('animate-brutal-shake'); void messageContainer.offsetWidth; messageContainer.classList.add('animate-brutal-shake');
+          messageLabel.textContent = 'Message is Required!'; messageLabel.className = 'brutalist-label bg-[#cc3333]'; hasError = true;
         }
         if (!hasError) {
           const backendUrl = getBackendUrl();
@@ -218,26 +189,14 @@
           const originalText = submitBtnFront.textContent;
           submitBtnFront.textContent = 'SENDING...';
           submitBtn.disabled = true;
-
           fetch(`${backendUrl}/api/contact`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              name: nameInput.value.trim(),
-              email: emailInput.value.trim(),
-              message: messageInput.value.trim()
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: nameInput.value.trim(), email: emailInput.value.trim(), message: messageInput.value.trim() })
           })
           .then(async (res) => {
-            if (!res.ok) {
-              const errData = await res.json().catch(() => ({}));
-              throw new Error(errData.error || 'Failed to send message');
-            }
-            showModal('Success', 'Feedback received! Thank you for playing.', 'success', () => {
-              window.location.href = '/';
-            });
+            if (!res.ok) { const errData = await res.json().catch(() => ({})); throw new Error(errData.error || 'Failed to send message'); }
+            showModal('Success', 'Feedback received! Thank you for playing.', 'success', () => { window.location.href = '/'; });
           })
           .catch((err) => {
             console.error('Error submitting form:', err);
@@ -247,6 +206,16 @@
           });
         }
       });
+
+      // Pill hover
+      var betaEl = document.getElementById('beta-pill-container');
+      var betaTip = document.getElementById('beta-pill-tooltip');
+      betaEl.addEventListener('mouseenter', function() { betaTip.classList.remove('hidden'); });
+      betaEl.addEventListener('mouseleave', function() { betaTip.classList.add('hidden'); });
+      var discEl = document.getElementById('disclaimer-pill-container');
+      var discTip = document.getElementById('disclaimer-pill-tooltip');
+      discEl.addEventListener('mouseenter', function() { discTip.classList.remove('hidden'); });
+      discEl.addEventListener('mouseleave', function() { discTip.classList.add('hidden'); });
     </script>
   </body>
 </html>

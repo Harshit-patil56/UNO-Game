@@ -300,9 +300,11 @@ const FLIP_NUM_WORD: Record<string, string> = {
   '6': 'SIX', '7': 'SEVEN', '8': 'EIGHT', '9': 'NINE'
 };
 
+const CLASSIC_AR = 259.76917 / 402.27795;
+
 const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameMode: 'classic' | 'flip' | 'mercy' = 'classic'): string => {
   if (!cardId) {
-    return '/cards/Deck.png';
+    return '/cards/back.svg';
   }
 
   const face = getActiveCardFaceFrontend(cardId, side, gameMode);
@@ -422,22 +424,22 @@ const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameM
     return '/cards/flip/TOP_CARD.jpg';
   }
 
-  // ── CLASSIC mode: use original PNG assets ─────────────────────────────────
+  // ── CLASSIC mode: use upgraded SVG assets ─────────────────────────────────
   if (face === 'WILD') {
-    return '/cards/Wild.png';
+    return '/cards/wild.svg';
   }
   if (face === 'WILD_DRAW_FOUR') {
-    return '/cards/Wild_Draw.png';
+    return '/cards/wild-draw4.svg';
   }
   if (face === 'WILD_DRAW_TWO') {
-    return '/cards/Wild_Draw.png';
+    return '/cards/wild-draw4.svg';
   }
   if (face === 'WILD_DRAW_COLOR') {
-    return '/cards/Wild.png';
+    return '/cards/wild.svg';
   }
 
   const parts = face.split('_');
-  if (parts.length < 2) return '/cards/Deck.png';
+  if (parts.length < 2) return '/cards/back.svg';
 
   let colorRaw = parts[0].toLowerCase();
   if (colorRaw === 'orange') colorRaw = 'red';
@@ -445,35 +447,33 @@ const getCardAssetUrl = (cardId: string, side: 'light' | 'dark' = 'light', gameM
   if (colorRaw === 'teal') colorRaw = 'green';
   if (colorRaw === 'purple') colorRaw = 'blue';
 
-  const color = colorRaw.charAt(0).toUpperCase() + colorRaw.slice(1);
-
   if (parts[1] === 'NUMBER') {
     const val = parts[2];
-    return `/cards/${color}_${val}.png`;
+    return `/cards/${colorRaw}-${val}.svg`;
   }
   if (parts[1] === 'SKIP') {
-    return `/cards/${color}_Skip.png`;
+    return `/cards/${colorRaw}-skip.svg`;
   }
   if (parts[1] === 'REVERSE') {
-    return `/cards/${color}_Reverse.png`;
+    return `/cards/${colorRaw}-reverse.svg`;
   }
   if (parts[1] === 'DRAW' && parts[2] === 'TWO') {
-    return `/cards/${color}_Draw.png`;
+    return `/cards/${colorRaw}-draw2.svg`;
   }
   if (parts[1] === 'DRAW' && parts[2] === 'ONE') {
-    return `/cards/${color}_Draw.png`;
+    return `/cards/${colorRaw}-draw2.svg`;
   }
   if (parts[1] === 'DRAW' && parts[2] === 'FIVE') {
-    return `/cards/${color}_Draw.png`;
+    return `/cards/${colorRaw}-draw2.svg`;
   }
   if (parts[1] === 'FLIP') {
-    return `/cards/${color}_Reverse.png`;
+    return `/cards/${colorRaw}-reverse.svg`;
   }
   if (parts[1] === 'SKIP' && parts[2] === 'EVERYONE') {
-    return `/cards/${color}_Skip.png`;
+    return `/cards/${colorRaw}-skip.svg`;
   }
 
-  return '/cards/Deck.png';
+  return '/cards/back.svg';
 };
 
 const getPlayDirectionArrowColors = (activeColor: string, gameMode = 'classic') => {
@@ -510,12 +510,12 @@ const FLIP_CROP_STYLE = {
   maxHeight: 'none',
 };
 
-function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'light', gameMode = 'classic', disabled = false, style }: UnoCardProps) {
+export function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'light', gameMode = 'classic', disabled = false, style }: UnoCardProps) {
   const assetUrl = useMemo(() => {
     if (isBack) {
       if (gameMode === 'flip') return '/cards/flip/TOP_CARD.jpg';
       if (gameMode === 'mercy') return '/cards/mercy/card_back.webp'; // Use No Mercy card back
-      return '/cards/Deck.png';
+      return '/cards/back.svg';
     }
     return getCardAssetUrl(cardId, side, gameMode);
   }, [cardId, isBack, side, gameMode]);
@@ -525,6 +525,7 @@ function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'ligh
   const flipWidth = Math.round(144 * FLIP_AR);
   const MERCY_AR = 355 / 502;
   const mercyWidth = Math.round(144 * MERCY_AR);
+  const classicWidth = Math.round(144 * CLASSIC_AR);
 
   return (
     <motion.div
@@ -533,13 +534,13 @@ function UnoCard({ cardId, isBack = false, onClick, className = '', side = 'ligh
           ? { ...style, width: `${flipWidth}px`, backgroundColor: side === 'dark' ? '#000000' : '#ffffff' }
           : gameMode === 'mercy'
             ? { ...style, width: `${mercyWidth}px`, backgroundColor: '#000000' }
-            : style
+            : { ...style, width: `${classicWidth}px`, backgroundColor: '#ffffff' }
       }
       whileHover={disabled ? {} : { scale: 1.08, y: -16, zIndex: 60, transition: { type: 'spring', stiffness: 300, damping: 15 } }}
       onClick={disabled ? undefined : onClick}
       className={`h-36 rounded-[12px] relative overflow-hidden select-none flex-shrink-0 cursor-pointer transition-shadow duration-200 ${gameMode === 'flip' || gameMode === 'mercy'
         ? 'shadow-[0_6px_18px_-2px_rgba(0,0,0,0.55),0_2px_6px_rgba(0,0,0,0.35)] hover:shadow-[0_12px_28px_-4px_rgba(0,0,0,0.65),0_4px_10px_rgba(0,0,0,0.4)]'
-        : 'w-24 hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)]'
+        : 'hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)]'
         } ${className} ${disabled ? 'opacity-85 cursor-not-allowed' : ''}`}
     >
       <img
@@ -859,7 +860,7 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
   const middle = (visibleCards - 1) / 2;
 
   const isDarkSide = gameMode === 'flip' && side === 'dark';
-  const cardBackSrc = gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/Deck.png';
+  const cardBackSrc = gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/back.svg';
   // Apply a subtle dark overlay filter for the dark side to visually distinguish it
   const cardBackFilter = isDarkSide ? 'brightness(0.85)' : 'none';
 
@@ -880,12 +881,14 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
     bottomOffset = isMobile ? 10 : 16;
   }
 
-  // Sizing corrections for Flip and No Mercy modes based on exact asset aspect ratios
+  // Sizing corrections for Classic, Flip and No Mercy modes based on exact asset aspect ratios
   if (gameMode === 'flip') {
     cardW = Math.round(cardH * FLIP_AR);
   } else if (gameMode === 'mercy') {
     const MERCY_AR = 355 / 502;
     cardW = Math.round(cardH * MERCY_AR);
+  } else {
+    cardW = Math.round(cardH * CLASSIC_AR);
   }
 
   const defaultSpacing = isVeryShort ? (isMobile ? 8 : 12) : (isShort ? (isMobile ? 10 : 16) : (isMobile ? 14 : 22));
@@ -950,7 +953,10 @@ function OpponentCardFan({ cardCount, direction: _direction, side, gameMode, isS
                 src={assetUrl}
                 alt={cardId || 'Card Back'}
                 className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : gameMode === 'mercy' ? 'w-full h-full object-cover pointer-events-none select-none block' : 'w-full h-full pointer-events-none select-none object-contain block'}
-                style={gameMode === 'flip' ? FLIP_CROP_STYLE : {}}
+                style={{
+                  imageRendering: (gameMode === 'flip' || gameMode === 'mercy' || gameMode === 'classic') ? 'auto' : 'pixelated',
+                  ...(gameMode === 'flip' ? FLIP_CROP_STYLE : {}),
+                }}
               />
             </div>
             {isTopCard && cardCount > 15 && (
@@ -1222,7 +1228,7 @@ function DiscardPile({
     ? Math.round(targetH * FLIP_AR)
     : gameMode === 'mercy'
       ? Math.round(targetH * MERCY_AR)
-      : Math.round(targetH * 0.69);
+      : Math.round(targetH * CLASSIC_AR);
 
   return (
     <div
@@ -1233,7 +1239,7 @@ function DiscardPile({
           ? (isMobile ? '81px' : '137px')
           : gameMode === 'mercy'
             ? (isMobile ? '92px' : '156px')
-            : (isMobile ? '90px' : '152px'),
+            : (isMobile ? `${Math.round(130 * CLASSIC_AR)}px` : `${Math.round(220 * CLASSIC_AR)}px`),
         height: isMobile ? '130px' : '220px',
       }}
     >
@@ -1251,7 +1257,7 @@ function DiscardPile({
           }
 
           const assetUrl = card.cardId === 'DECK_BACK'
-            ? (gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/Deck.png')
+            ? (gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/back.svg')
             : getCardAssetUrl(card.cardId, side, gameMode);
 
           return (
@@ -1751,7 +1757,7 @@ function HandCanvas({
     ? Math.round(targetH * FLIP_AR)
     : gameMode === 'mercy'
       ? Math.round(targetH * MERCY_AR)
-      : Math.round(targetH * 0.69);
+      : Math.round(targetH * CLASSIC_AR);
 
   // Dynamic scale factor for hand sizes > 10 cards (caps at 72% scale)
   const sizeScale = count > 10 ? Math.max(0.72, 1.0 - (count - 10) * 0.018) : 1.0;
@@ -1917,7 +1923,7 @@ function HandCanvas({
               alt={cardId}
               className={gameMode === 'flip' ? 'absolute pointer-events-none select-none' : gameMode === 'mercy' ? 'w-full h-full object-cover pointer-events-none select-none block' : 'w-full h-full pointer-events-none select-none object-contain block'}
               style={{
-                imageRendering: (gameMode === 'flip' || gameMode === 'mercy') ? 'auto' : 'pixelated',
+                imageRendering: (gameMode === 'flip' || gameMode === 'mercy' || gameMode === 'classic') ? 'auto' : 'pixelated',
                 ...(gameMode === 'flip' ? FLIP_CROP_STYLE : {}),
               }}
               animate={{
@@ -1963,33 +1969,68 @@ interface CpuBot {
 }
 
 function BetaPill() {
-  const [isHovered, setIsHovered] = useState(false);
+  const [betaHovered, setBetaHovered] = useState(false);
+  const [disclaimerHovered, setDisclaimerHovered] = useState(false);
 
   return (
-    <div
-      className="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-col items-start gap-1.5"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
-        Beta 1.3
+    <div className="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-row items-start gap-2">
+
+      {/* --- Beta 1.4 Pill --- */}
+      <div
+        className="relative"
+        onMouseEnter={() => setBetaHovered(true)}
+        onMouseLeave={() => setBetaHovered(false)}
+      >
+        <div className="bg-[#64748b] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase cursor-help transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]">
+          Beta 1.4
+        </div>
+        <AnimatePresence>
+          {betaHovered && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 4 }}
+              transition={{ duration: 0.15 }}
+              className="absolute top-full left-0 mt-1.5 bg-white text-[#0f172a] border-2 border-[#0f172a] px-4 py-3 rounded-[10px] shadow-[4px_4px_0_#0f172a] w-[240px] text-left z-50"
+            >
+              <p className="text-[10px] font-bold leading-relaxed">
+                🚧 The game is in beta. Some features might not work yet — they will come soon. There may be bugs and glitches, so please bear with me!
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <AnimatePresence>
-        {isHovered && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: -4 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: -4 }}
-            transition={{ duration: 0.15 }}
-            className="bg-white text-[#0f172a] border-2 border-[#0f172a] p-3 rounded-[8px] shadow-[3px_3px_0_#0f172a] max-w-[220px] text-left"
-          >
-            <p className="text-[10px] font-bold leading-normal">
-              The game is in beta. Some features might not work; they will come soon. There may be some bugs and glitches, so please bear with me!
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* --- Disclaimer Pill --- */}
+      <div
+        className="relative"
+        onMouseEnter={() => setDisclaimerHovered(true)}
+        onMouseLeave={() => setDisclaimerHovered(false)}
+      >
+        <div
+          className="bg-[#ea580c] text-white border-2 border-[#0f172a] px-2.5 py-1 rounded-[6px] shadow-[2px_2px_0_#0f172a] font-black text-[9px] tracking-wider uppercase transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-[1px_1px_0_#0f172a]"
+          style={{ cursor: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%23ea580c' d='M12 2L1 21h22L12 2z'/%3E%3Cpath fill='white' d='M12 9v5M12 16.5v1'/%3E%3Cpath stroke='white' stroke-width='2' stroke-linecap='round' d='M12 9v5M12 16.5v1'/%3E%3C/svg%3E") 10 10, auto` }}
+        >
+          ⚖️ Disclaimer
+        </div>
+        <AnimatePresence>
+          {disclaimerHovered && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 4 }}
+              transition={{ duration: 0.15 }}
+              className="absolute top-full left-0 mt-1.5 bg-white text-[#0f172a] border-2 border-[#0f172a] px-4 py-3 rounded-[10px] shadow-[4px_4px_0_#0f172a] w-[280px] text-left z-50"
+            >
+              <p className="text-[9px] font-black uppercase tracking-wider text-[#ea580c] mb-2">⚖️ Disclaimer</p>
+              <p className="text-[10px] font-medium leading-relaxed text-[#334155]">
+                UNO® and all related trademarks, card designs, and assets are the property of <strong>Mattel, Inc.</strong> This is a personal, non-commercial fan project — built just to play with friends and help others enjoy the game online. No profit is made from this site. I do not claim ownership of any UNO® intellectual property. All assets were sourced from publicly available resources on the web.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
     </div>
   );
 }
@@ -3147,6 +3188,15 @@ function App() {
       pushNotification({ message: `${callerName} called UNO! 📣`, type: 'info' });
     });
 
+    socket.on('seven_swapped', (data: any) => {
+      console.log('Socket seven_swapped received:', data);
+      playSoundEffect('shuffle', soundEnabledRef.current);
+      const currentRoom = roomRef.current;
+      const player1 = currentRoom?.players.find((p: any) => p.id === data.playedBy)?.name || 'Someone';
+      const player2 = currentRoom?.players.find((p: any) => p.id === data.targetPlayerId)?.name || 'Someone';
+      pushNotification({ message: `${player1} swapped hands with ${player2}! 🔄`, type: 'info' });
+    });
+
     socket.on('uno_caught', (data: any) => {
       console.log('Socket uno_caught received:', data);
       const currentRoom = roomRef.current;
@@ -4210,30 +4260,81 @@ function App() {
             }}
           >
             <AnimatePresence mode="popLayout">
-              {gameNotifications.map((notif) => (
-                <motion.div
-                  key={notif.id}
-                  layout
-                  initial={{ opacity: 0, x: 60, scale: 0.88 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 60, scale: 0.88 }}
-                  transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-                  style={{ maxWidth: '290px', width: 'max-content' }}
-                >
-                  <div
-                    className={`border-3 border-[#0f172a] rounded-[14px] px-4 py-3 shadow-[4px_4px_0_#0f172a] text-right font-black uppercase text-xs tracking-wider flex items-center justify-end gap-2 select-none ${notif.type === 'info'
-                        ? 'bg-[#ecd407] text-[#0f172a]'
-                        : notif.type === 'warning'
-                          ? 'bg-[#ec4899] text-white'
-                          : notif.type === 'error'
-                            ? 'bg-[#cc3333] text-white'
-                            : 'bg-white text-[#0f172a]'
-                      }`}
+              {gameNotifications.map((notif) => {
+                const emojiRegex = /[\u{1F000}-\u{1F9FF}\u{2700}-\u{27BF}\u{2600}-\u{26FF}]/u;
+                const match = notif.message.match(emojiRegex);
+                let emoji = '';
+                let text = notif.message;
+                if (match) {
+                  emoji = match[0];
+                  text = notif.message.replace(emoji, '').replace(/\s+/g, ' ').trim();
+                } else {
+                  if (notif.type === 'success') emoji = '✅';
+                  else if (notif.type === 'warning') emoji = '⚠️';
+                  else if (notif.type === 'error') emoji = '❌';
+                  else emoji = '📣';
+                }
+
+                return (
+                  <motion.div
+                    key={notif.id}
+                    layout
+                    initial={{ opacity: 0, x: 60, scale: 0.88 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 60, scale: 0.88 }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                    style={{ maxWidth: '320px', width: 'max-content' }}
+                    className="pointer-events-auto cursor-pointer"
+                    onClick={() => setGameNotifications(prev => prev.filter(n => n.id !== notif.id))}
                   >
-                    <span>{notif.message}</span>
-                  </div>
-                </motion.div>
-              ))}
+                    <div className="flex items-center gap-3 select-none">
+                      {/* Emoji Sticker */}
+                      <div
+                        className="text-4xl select-none shrink-0 flex items-center justify-center transform -rotate-12 transition-all hover:rotate-0 hover:scale-110 duration-200"
+                        style={{
+                          filter: 'drop-shadow(3px 0 0 white) drop-shadow(-3px 0 0 white) drop-shadow(0 3px 0 white) drop-shadow(0 -3px 0 white) drop-shadow(2px 2px 0 white) drop-shadow(-2px -2px 0 white) drop-shadow(2px -2px 0 white) drop-shadow(-2px 2px 0 white) drop-shadow(3px 3px 0px #0f172a)',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '48px',
+                          height: '48px'
+                        }}
+                      >
+                        <span>{emoji}</span>
+                      </div>
+
+                      {/* Text Box Sticker Wrapper */}
+                      <div 
+                        className="bg-white p-[3px] shadow-[4px_4px_0_#0f172a] flex items-stretch"
+                        style={{
+                          borderRadius: '24px 18px 28px 20px / 20px 28px 18px 24px'
+                        }}
+                      >
+                        {/* Text Box Inner */}
+                        <div
+                          className={`border-3 border-[#0f172a] px-4 py-3 font-black uppercase text-xs tracking-wider flex items-center ${
+                            notif.type === 'info'
+                              ? 'bg-[#ecd407] text-[#0f172a]'
+                              : notif.type === 'warning'
+                                ? 'bg-[#ec4899] text-white'
+                                : notif.type === 'error'
+                                  ? 'bg-[#cc3333] text-white'
+                                  : 'bg-white text-[#0f172a]'
+                          }`}
+                          style={{
+                            borderRadius: '20px 14px 24px 16px / 16px 24px 14px 20px'
+                          }}
+                        >
+                          <span className="text-left">{text}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
 
@@ -4693,7 +4794,7 @@ function App() {
                   ? (isMobile ? '81px' : '137px')
                   : room.gameMode === 'mercy'
                     ? (isMobile ? '92px' : '156px')
-                    : (isMobile ? '90px' : '152px'),
+                    : (isMobile ? `${Math.round(130 * CLASSIC_AR)}px` : `${Math.round(220 * CLASSIC_AR)}px`),
                 height: isMobile ? '130px' : '220px',
               }}
               title={room.gameMode === 'mercy' && room.drawStack?.count > 0 ? `Draw ${room.drawStack.count} cards (or stack)` : 'Draw Card'}
@@ -4717,7 +4818,7 @@ function App() {
                 style={{ backgroundColor: (room.gameMode === 'mercy' || (room.gameMode === 'flip' && room.side === 'dark')) ? '#000000' : '#ffffff' }}
               >
                 <img
-                  src={room.gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : room.gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/Deck.png'}
+                  src={room.gameMode === 'flip' ? '/cards/flip/TOP_CARD.jpg' : room.gameMode === 'mercy' ? '/cards/mercy/card_back.webp' : '/cards/back.svg'}
                   alt="Draw Deck"
                   className={room.gameMode === 'flip' ? 'absolute pointer-events-none' : room.gameMode === 'mercy' ? 'w-full h-full pointer-events-none object-cover block' : 'w-full h-full pointer-events-none object-contain block'}
                   style={
@@ -4727,7 +4828,7 @@ function App() {
                         imageRendering: 'auto',
                       }
                       : {
-                        imageRendering: room.gameMode === 'mercy' ? 'auto' : 'pixelated',
+                        imageRendering: (room.gameMode === 'mercy' || room.gameMode === 'classic') ? 'auto' : 'pixelated',
                       }
                   }
                 />
@@ -4972,48 +5073,7 @@ function App() {
                           )}
                         </p>
 
-                        {/* Hand Reveal Grid */}
-                        <div className="w-full bg-[#f8fafc] border-2 border-[#0f172a] rounded-[16px] p-4 mb-6 shadow-[3px_3px_0_#0f172a]">
-                          <div className="text-[10px] font-black uppercase text-neutral-muted tracking-wider mb-3 text-center">
-                            Revealed Hand of {challengedName} (matching cards highlighted)
-                          </div>
 
-                          {activeChallengeOutcome.playedPlayerHand && activeChallengeOutcome.playedPlayerHand.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 justify-center max-h-48 overflow-y-auto py-2 px-1">
-                              {activeChallengeOutcome.playedPlayerHand.map((cardId: string, index: number) => {
-                                const face = getActiveCardFaceFrontend(cardId, room.side, room.gameMode);
-                                const card = normalizeCardClient(face);
-                                const isMatching = card.color === activeChallengeOutcome.colorBeforePlay;
-
-                                return (
-                                  <div
-                                    key={index}
-                                    style={{
-                                      border: isMatching ? '4px solid #ea580c' : '2px solid #0f172a',
-                                      borderRadius: '14px',
-                                      padding: '2px',
-                                      boxShadow: isMatching ? '0 0 12px rgba(234, 88, 12, 0.6)' : 'none',
-                                      transform: isMatching ? 'scale(1.05)' : 'scale(0.95)',
-                                      transition: 'all 0.2s ease-in-out'
-                                    }}
-                                  >
-                                    <UnoCard
-                                      cardId={cardId}
-                                      side={room.side}
-                                      gameMode={room.gameMode}
-                                      disabled={true}
-                                      className="!h-24"
-                                    />
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="text-xs font-bold text-center text-neutral-muted py-4">
-                              Hand is empty.
-                            </div>
-                          )}
-                        </div>
 
                         {/* Close button */}
                         <button
@@ -5323,22 +5383,126 @@ function App() {
                 setNameError(false);
                 setView('friends');
               }}
-              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative overflow-hidden cursor-pointer"
+              className="bg-white border-3 border-[#0f172a] rounded-[20px] p-5 shadow-[4px_4px_0_#0f172a] flex flex-col justify-between relative cursor-pointer"
             >
+              {/* UPGRADED! Floating Icon (half on main card, half outside) */}
+              <motion.div
+                className="absolute -top-12 -right-12 w-24 h-24 z-20 flex items-center justify-center pointer-events-none"
+                animate={{ y: [2, -4, 2] }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <svg viewBox="0 0 512 512" className="w-full h-full">
+                  <defs>
+                    {/* Organic hand-drawn wobble line filter */}
+                    <filter id="hand-drawn-wobble" x="-10%" y="-10%" width="120%" height="120%">
+                      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+                      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.5" xChannelSelector="R" yChannelSelector="G" />
+                    </filter>
+
+                    {/* Smooth blur filter for blending inside color edges */}
+                    <filter id="color-blur" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="8" />
+                    </filter>
+
+                    {/* Blue Outer Gradient */}
+                    <linearGradient id="blueOuterGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                      <stop offset="0%" stopColor="#1d4ed8" />
+                      <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+
+                    {/* Blue Inner Gradient */}
+                    <linearGradient id="blueInnerGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                      <stop offset="0%" stopColor="#3b82f6" />
+                      <stop offset="100%" stopColor="#60a5fa" />
+                    </linearGradient>
+
+                    {/* Blue Core Gradient */}
+                    <linearGradient id="blueCoreGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                      <stop offset="0%" stopColor="#60a5fa" />
+                      <stop offset="100%" stopColor="#ffffff" />
+                    </linearGradient>
+
+                    {/* Clip path of the arrow itself so all inner details stay inside */}
+                    <clipPath id="arrow-clip">
+                      <path d="M 256,120 L 360,260 L 300,260 L 300,370 L 212,370 L 212,260 L 152,260 Z" />
+                    </clipPath>
+
+                    {/* Diagonal cut glossy shine gradient */}
+                    <linearGradient id="shineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.28" />
+                      <stop offset="42%" stopColor="#ffffff" stopOpacity="0.28" />
+                      <stop offset="42.1%" stopColor="#ffffff" stopOpacity="0" />
+                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Apply the wobble filter to the entire group so all parts warp identically */}
+                  <g filter="url(#hand-drawn-wobble)">
+                    {/* 0. Hand-drawn wobbly shadow layer of the arrow (rendered behind) */}
+                    <path
+                      d="M 256,120 L 360,260 L 300,260 L 300,370 L 212,370 L 212,260 L 152,260 Z"
+                      fill="#0f172a"
+                      transform="translate(16, 16)"
+                    />
+
+                    {/* --- MAIN ARROW --- */}
+                    {/* Inner details clipped to the arrow shape */}
+                    <g clipPath="url(#arrow-clip)">
+                      {/* 1. Outer Arrow Layer */}
+                      <path
+                        d="M 256,120 L 360,260 L 300,260 L 300,370 L 212,370 L 212,260 L 152,260 Z"
+                        fill="url(#blueOuterGrad)"
+                      />
+
+                      {/* 2. Middle Arrow Layer */}
+                      <path
+                        d="M 256,120 L 360,260 L 300,260 L 300,370 L 212,370 L 212,260 L 152,260 Z"
+                        transform="translate(256, 245) scale(0.72) translate(-256, -245)"
+                        fill="url(#blueInnerGrad)"
+                        filter="url(#color-blur)"
+                      />
+
+                      {/* 3. Core Arrow Layer */}
+                      <path
+                        d="M 256,120 L 360,260 L 300,260 L 300,370 L 212,370 L 212,260 L 152,260 Z"
+                        transform="translate(256, 245) scale(0.44) translate(-256, -245)"
+                        fill="url(#blueCoreGrad)"
+                        filter="url(#color-blur)"
+                      />
+
+                      {/* 4. Diagonal Gloss Shine Overlay */}
+                      <path
+                        d="M 256,120 L 360,260 L 300,260 L 300,370 L 212,370 L 212,260 L 152,260 Z"
+                        fill="url(#shineGrad)"
+                      />
+                    </g>
+
+                    {/* Outer border/stroke drawn on top so the borders are crisp */}
+                    <path
+                      d="M 256,120 L 360,260 L 300,260 L 300,370 L 212,370 L 212,260 L 152,260 Z"
+                      fill="none"
+                      stroke="#0f172a"
+                      strokeWidth="18"
+                      strokeLinejoin="round"
+                    />
+                  </g>
+                </svg>
+              </motion.div>
               <div className="mt-2">
                 <div
                   className="mb-4 flex items-center justify-start select-none"
                   style={{ perspective: '600px' }}
                 >
                   <motion.div
-                    className="w-[56px] h-[84px] rounded-[8px] overflow-hidden bg-white relative shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
+                    className="w-[54px] h-[84px] rounded-[6px] overflow-hidden bg-white relative shadow-[0_6px_12px_rgba(0,0,0,0.25)]"
                     animate={classicHover}
                     transition={{ type: 'spring', stiffness: 180, damping: 15 }}
                   >
                     <img
-                      src="/cards/Red_7.png"
+                      src="/cards/wild-draw4.svg"
                       alt="Classic UNO Card"
-                      className="w-full h-full object-contain pointer-events-none"
+                      className="w-full h-full object-contain pointer-events-none block"
+                      style={{ imageRendering: 'auto' }}
                     />
                   </motion.div>
                 </div>
