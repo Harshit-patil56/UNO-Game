@@ -1,0 +1,19 @@
+# UNO With Friends
+
+> UNO With Friends is a free-to-play browser card game featuring full implementations of Classic UNO, UNO Flip (with Light and Dark sides), and UNO No Mercy (with stacking rules, 25-card mercy elimination, Wild Draw 6/10, Skip Everyone, Discard All, and custom avatars).
+
+This website allows users to host online multiplayer lobbies, join rooms with custom codes, or play against smart AI bot opponents without downloads, ads, or signups.
+
+## Game Modes
+
+- [Classic UNO](https://unomultiplayer.me/): Play standard UNO rules with up to 4 players or AI bot opponents.
+- [UNO No Mercy](https://unomultiplayer.me/): The ultimate UNO experience featuring extreme stacking, 25-card mercy rule elimination, 0/7 hand swaps, Skip Everyone, and Discard All.
+- [UNO Flip](https://unomultiplayer.me/): Play with dual sides—the Light Side and the Dark Side, featuring severe penalties like Draw 5 and Wild Draw Color.
+
+## Site Pages
+
+- [Home Page - Play Game](https://unomultiplayer.me/index.html.md): The main page to join lobbies, create rooms, and play UNO multiplayer online.
+- [About Us](https://unomultiplayer.me/about.html.md): Information about the project, mission, developer, rules, and game modes.
+- [Contact Us](https://unomultiplayer.me/contact.html.md): Get in touch with the development team for feedback, bug reports, and features.
+- [Privacy Policy](https://unomultiplayer.me/privacy.html.md): User data handling policy, local storage usage, and cookies.
+- [Terms & Conditions](https://unomultiplayer.me/terms.html.md): Rules of use, acceptable game use, and liability disclaimers.

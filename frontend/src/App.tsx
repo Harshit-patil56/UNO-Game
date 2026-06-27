@@ -1764,9 +1764,15 @@ function HandCanvas({
   const scaledH = targetH * sizeScale;
   const scaledW = targetW * sizeScale;
 
+  const baseTargetH = isMobile ? 130 : 220;
+  const scaleRatio = targetH / baseTargetH;
+
   let spacing = isMobile
     ? Math.max(25, 45 - count)
     : Math.max(42, 80 - count);
+
+  // Scale spacing proportionally to the card's height/width scale
+  spacing = spacing * scaleRatio;
 
   const avatarSpace = isVeryShort ? (isMobile ? 60 : 100) : (isShort ? (isMobile ? 80 : 120) : (isMobile ? 100 : 140));
   const maxHandWidth = dimensions.width - avatarSpace;
@@ -1774,7 +1780,8 @@ function HandCanvas({
   const totalHandWidth = (count - 1) * spacing + scaledW;
   if (totalHandWidth > maxHandWidth && count > 1) {
     spacing = (maxHandWidth - scaledW) / (count - 1);
-    spacing = Math.max(isMobile ? 12 : 20, spacing);
+    const minSpacing = (isMobile ? 12 : 20) * scaleRatio;
+    spacing = Math.max(minSpacing, spacing);
   }
 
   const cx = dimensions.width / 2;
@@ -1823,7 +1830,7 @@ function HandCanvas({
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-5xl relative overflow-visible flex items-center justify-center"
+      className="w-full max-w-5xl relative overflow-visible flex items-center justify-center z-20"
       style={{ touchAction: 'none', height: `${containerHeight}px` }}
     >
       {reconciledHand.map((inst, i) => {
@@ -1968,12 +1975,20 @@ interface CpuBot {
   avatarUri: string;
 }
 
-function BetaPill() {
+function BetaPill({ scale = 1.0, isVeryShort = false }: { scale?: number; isVeryShort?: boolean }) {
   const [betaHovered, setBetaHovered] = useState(false);
   const [disclaimerHovered, setDisclaimerHovered] = useState(false);
 
   return (
-    <div className="fixed top-4 left-4 z-50 pointer-events-auto select-none flex flex-row items-start gap-2">
+    <div
+      className="fixed z-50 pointer-events-auto select-none flex flex-row items-start gap-2 transition-all duration-300"
+      style={{
+        top: isVeryShort ? '12px' : '16px',
+        left: isVeryShort ? '12px' : '16px',
+        transform: scale !== 1.0 ? `scale(${scale})` : undefined,
+        transformOrigin: 'top left'
+      }}
+    >
 
       {/* --- Beta 1.4 Pill --- */}
       <div
@@ -2549,6 +2564,7 @@ function App() {
   const isShort = height < 680;
   const isVeryShort = height < 520;
   const isMobile = width < 640;
+  const gameScale = Math.max(0.48, Math.min(1.0, Math.min(width / 1100, height / 750)));
 
   const [view, setView] = useState<'main' | 'friends' | 'computer' | 'lobby' | 'game'>(() => {
     try {
@@ -4242,7 +4258,7 @@ function App() {
           }}
           className={`h-screen w-screen relative overflow-hidden font-sans select-none flex flex-col items-center justify-end transition-colors duration-500 ${isVeryShort ? 'pb-4' : (isShort ? 'pb-8' : 'pb-16')}`}
         >
-          <BetaPill />
+          <BetaPill scale={gameScale} isVeryShort={isVeryShort} />
 
 
           {/* Stacking Notification Banners — top-right near settings button, newest first */}
@@ -4257,6 +4273,8 @@ function App() {
               gap: '8px',
               alignItems: 'flex-end',
               pointerEvents: 'none',
+              transform: `scale(${gameScale})`,
+              transformOrigin: 'top right',
             }}
           >
             <AnimatePresence mode="popLayout">
@@ -4344,8 +4362,8 @@ function App() {
             let fanDirection: 'left' | 'right' | 'down' = 'down';
             let layoutClass = 'flex items-center gap-8 sm:gap-12';
 
-            const scaleVal = isVeryShort ? 0.7 : (isShort ? 0.85 : 1.0);
-            const oppTop = isVeryShort ? '28%' : (isShort ? '32%' : '40%');
+            const scaleVal = gameScale;
+            const oppTop = isVeryShort ? '24%' : (isShort ? '28%' : (isMobile ? '32%' : '38%'));
             const positionStyle: React.CSSProperties = {
               position: 'absolute',
               zIndex: 30,
@@ -4362,14 +4380,14 @@ function App() {
             } else if (opponents.length === 2) {
               // 2 Opponents: Left Center, Right Center
               if (idx === 0) {
-                positionStyle.left = isVeryShort ? '8px' : '24px';
+                positionStyle.left = isMobile ? '8px' : (isVeryShort ? '12px' : '24px');
                 positionStyle.top = oppTop;
                 positionStyle.transform = `translateY(-50%) scale(${scaleVal})`;
                 positionStyle.transformOrigin = 'left center';
                 fanDirection = 'right';
                 layoutClass = 'flex items-center gap-8 sm:gap-12';
               } else {
-                positionStyle.right = isVeryShort ? '8px' : '24px';
+                positionStyle.right = isMobile ? '8px' : (isVeryShort ? '12px' : '24px');
                 positionStyle.top = oppTop;
                 positionStyle.transform = `translateY(-50%) scale(${scaleVal})`;
                 positionStyle.transformOrigin = 'right center';
@@ -4379,7 +4397,7 @@ function App() {
             } else {
               // 3 Opponents: Left, Top, Right
               if (idx === 0) {
-                positionStyle.left = isVeryShort ? '8px' : '24px';
+                positionStyle.left = isMobile ? '8px' : (isVeryShort ? '12px' : '24px');
                 positionStyle.top = oppTop;
                 positionStyle.transform = `translateY(-50%) scale(${scaleVal})`;
                 positionStyle.transformOrigin = 'left center';
@@ -4393,7 +4411,7 @@ function App() {
                 fanDirection = 'down';
                 layoutClass = 'flex items-center gap-8 sm:gap-12 flex-row-reverse';
               } else {
-                positionStyle.right = isVeryShort ? '8px' : '24px';
+                positionStyle.right = isMobile ? '8px' : (isVeryShort ? '12px' : '24px');
                 positionStyle.top = oppTop;
                 positionStyle.transform = `translateY(-50%) scale(${scaleVal})`;
                 positionStyle.transformOrigin = 'right center';
@@ -4443,9 +4461,9 @@ function App() {
           <div
             className="absolute z-[250] transition-all duration-300"
             style={{
-              left: isVeryShort ? '16px' : (isShort ? '24px' : '32px'),
-              bottom: isVeryShort ? '16px' : (isShort ? '24px' : '32px'),
-              transform: isVeryShort ? 'scale(0.7)' : (isShort ? 'scale(0.85)' : 'scale(1.0)'),
+              left: isVeryShort ? '12px' : (isShort ? '18px' : '28px'),
+              bottom: isVeryShort ? '12px' : (isShort ? '18px' : '28px'),
+              transform: `scale(${gameScale * 0.95})`,
               transformOrigin: 'bottom left'
             }}
           >
@@ -4467,9 +4485,9 @@ function App() {
           <div
             className="absolute z-[250] flex flex-col items-end gap-3 transition-all duration-300 pointer-events-auto"
             style={{
-              right: isVeryShort ? '16px' : (isShort ? '24px' : '32px'),
-              bottom: isVeryShort ? '16px' : (isShort ? '24px' : '32px'),
-              transform: isVeryShort ? 'scale(0.7)' : (isShort ? 'scale(0.85)' : 'scale(1.0)'),
+              right: isVeryShort ? '12px' : (isShort ? '18px' : '28px'),
+              bottom: isVeryShort ? '12px' : (isShort ? '18px' : '28px'),
+              transform: `scale(${gameScale * 0.95})`,
               transformOrigin: 'bottom right'
             }}
           >
@@ -4533,7 +4551,7 @@ function App() {
             style={{
               top: isVeryShort ? '12px' : '24px',
               right: isVeryShort ? '12px' : '24px',
-              transform: isVeryShort ? 'scale(0.8)' : 'scale(1.0)',
+              transform: `scale(${gameScale})`,
               transformOrigin: 'top right'
             }}
           >
@@ -4626,8 +4644,8 @@ function App() {
           {/* Center Board (Draw Pile and Discard Pile) */}
           <div
             style={{
-              top: isVeryShort ? '28%' : (isShort ? '32%' : '40%'),
-              transform: `translate(-50%, -50%) scale(${isVeryShort ? 0.7 : (isShort ? 0.85 : 1.0)})`,
+              top: isVeryShort ? '38%' : (isShort ? '40%' : '42%'),
+              transform: `translate(-50%, -50%) scale(${gameScale})`,
               transformOrigin: 'center center'
             }}
             className="absolute left-1/2 flex items-center justify-center gap-6 sm:gap-16 pointer-events-auto z-10 transition-all duration-300"
